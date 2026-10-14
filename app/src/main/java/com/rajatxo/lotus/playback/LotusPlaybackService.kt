@@ -10,9 +10,4 @@ class LotusPlaybackService : MediaSessionService() {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = null
-
-    override fun onTaskRemoved(rootIntent: android.content.Intent) {
-        super.onTaskRemoved(rootIntent)
-        stopSelf()
-    }
 }
