@@ -12,10 +12,7 @@ class LotusPlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = null
 
     override fun onTaskRemoved(rootIntent: android.content.Intent) {
-        // Stop service when app is removed from task manager
-        if (mediaSessions.isEmpty()) {
-            stopSelf()
-        }
         super.onTaskRemoved(rootIntent)
+        stopSelf()
     }
 }
