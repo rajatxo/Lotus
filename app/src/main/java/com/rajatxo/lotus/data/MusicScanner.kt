@@ -41,7 +41,7 @@ object MusicScanner {
                     val uri = ContentUris.withAppendedId(collection, id)
                     val albumArtUri = Uri.withAppendedPath(
                         Uri.parse("content://media/external/audio/albumart"),
-                        cursor.getLong(albumCol.let { cursor.getLong(it) }).toString()
+                        cursor.getLong(albumCol).toString()
                     )
                     songs.add(Song(
                         id = id,
