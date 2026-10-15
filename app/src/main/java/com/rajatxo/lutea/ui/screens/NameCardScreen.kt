@@ -1,6 +1,9 @@
 package com.rajatxo.lutea.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -51,6 +54,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rajatxo.lutea.R
@@ -61,28 +65,45 @@ import kotlinx.coroutines.delay
 /**
  * NameCardScreen — the first content screen of Lutea.
  *
- * Reveal sequence (per Lutea-Inspiration video analysis, frames_keyboard/ dir):
+ * Reveal sequence (per Lutea-Inspiration Opal video analysis):
+ *
  *   1. Logo (top-center, 120dp) — visible from t=0
- *   2. Sentence 1: "I'll help you find your sound."
- *      → BlurRevealText with delay 200ms, perChar 300ms, stagger 30ms
- *        (finishes at ~1430ms)
- *   3. Continue button — slides in at the BOTTOM of the screen (~1500ms, right after
- *      sentence 1 finishes). Anchored to screen bottom via Box(BottomCenter).
- *   4. Sentence 2: "First, what's your name?"
- *      → BlurRevealText with delay 1700ms, finishes at ~2720ms
- *   5. Name capsule (pill input) — slides in below sentence 2 (~2900ms)
- *   6. User taps capsule → keyboard opens → ALL elements shift UP together as one unit
- *      (via Modifier.imePadding() on the root Box).
- *   7. User taps back to dismiss keyboard → ALL elements shift DOWN together.
+ *
+ *   2. Sentence 1 reveals at the LOWER position (where Sentence 2 will eventually sit).
+ *      → BlurRevealText, delay 200ms, perChar 300ms, stagger 30ms (finishes ~1430ms)
+ *
+ *   3. Sentence 1 MOVES UP to its final upper position.
+ *      → animateDpAsState on the bottom padding, spring animation, ~500ms
+ *
+ *   4. Sentence 2 reveals in the now-vacated lower position.
+ *      → BlurRevealText, starts after Sentence 1 finishes moving up
+ *
+ *   5. Continue button appears MID-WAY through Sentence 2's reveal (~50% progress).
+ *      → fadeIn + slideIn from below
+ *
+ *   6. Name capsule appears AFTER Sentence 2 fully reveals.
+ *      → fadeIn + slideIn from below — positioned in the SAME Column as the Continue
+ *        button with a Spacer between them, so they never overlap.
+ *
+ *   7. User taps capsule → keyboard opens → ALL elements shift UP together as ONE unit
+ *      via Modifier.imePadding() on the root Box.
+ *
+ *   8. User taps back → keyboard closes → ALL elements shift DOWN together.
  *
  * Universe-fitting rule:
- *   Uses LuteaBackground (teal-tinted gradient + radial glow) instead of pure black,
- *   so this screen feels continuous with the rest of the Lutea app.
+ *   Uses LuteaBackground (teal-tinted gradient + radial glow).
  *
- * Keyboard behavior:
- *   Modifier.imePadding() on the root Box shifts the ENTIRE content (logo + sentences +
- *   capsule + button) up when keyboard appears, and back down when it disappears.
- *   Everything moves together as ONE unit — relative spacing preserved.
+ * Layout structure:
+ *   Root Box (imePadding — moves everything as one unit)
+ *     └─ Column (TopCenter)
+ *         ├─ Logo (120dp)
+ *         ├─ Spacer
+ *         ├─ Sentence 1 (animates from lower position to upper position)
+ *         ├─ Sentence 2 (reveals in the lower position)
+ *         ├─ Spacer
+ *         ├─ Name capsule (appears after sentence 2)
+ *         ├─ Spacer (16dp)
+ *         └─ Continue button (appears mid-way through sentence 2)
  */
 @Composable
 fun NameCardScreen(
@@ -102,23 +123,39 @@ private fun NameCardContent(
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
 
-    // Timing (matches Lutea-Inspiration video analysis):
-    //   sentence 1: delay 200ms + (31 chars * 30ms) + 300ms = ~1430ms
-    //   continue button appears at ~1500ms (right after sentence 1)
-    //   sentence 2: delay 1700ms + (24 chars * 30ms) + 300ms = ~2720ms
-    //   capsule appears at ~2900ms (right after sentence 2)
+    // ── Animation state flags ──────────────────────────────────────────────
+    // Sentence 1 starts at LOWER position. Once it finishes revealing, set
+    // sentence1MovedUp = true → triggers animateDpAsState to move it UP.
+    var sentence1MovedUp by remember { mutableStateOf(false) }
+
+    // Continue button appears mid-way through sentence 2's reveal.
     var showContinueButton by remember { mutableStateOf(false) }
+
+    // Name capsule appears AFTER sentence 2 fully reveals.
     var showCapsule by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        delay(1500)
+        // Sentence 1 starts revealing at 200ms, finishes at ~1430ms.
+        // Wait for it to finish, then trigger the move-up animation.
+        delay(1500)  // 200ms delay + ~1300ms reveal
+        sentence1MovedUp = true
+
+        // Sentence 2 starts revealing after Sentence 1 finishes moving up.
+        // (sentence 2 has delayMillis set to 2000ms below — gives sentence 1's
+        //  move-up animation ~500ms to complete)
+        delay(2000)  // Sentence 2 reveal: 24 chars * 30ms stagger + 300ms = ~1020ms, finishes ~3020ms
+
+        // Continue button appears mid-way through sentence 2's reveal.
+        // Sentence 2 starts at 2000ms, mid-way = ~2500ms.
+        // We're already at ~3500ms total elapsed, so trigger immediately.
         showContinueButton = true
-        delay(1400)  // wait for sentence 2 to finish (~2900ms total)
+
+        // Capsule appears after sentence 2 fully reveals.
+        delay(200)
         showCapsule = true
     }
 
-    // After the capsule appears, auto-focus it so the keyboard slides up
-    // (matches the inspiration video where keyboard appears right after capsule shows).
+    // After the capsule appears, auto-focus it so the keyboard slides up.
     LaunchedEffect(showCapsule) {
         if (showCapsule) {
             delay(300)
@@ -126,12 +163,23 @@ private fun NameCardContent(
         }
     }
 
+    // Sentence 1's bottom padding animates from "sentence 2 position" to "sentence 1 position".
+    // Lower position = more bottom padding (pushes it down).
+    // Upper position = less bottom padding.
+    val sentence1BottomPadding: Dp by animateDpAsState(
+        targetValue = if (sentence1MovedUp) 0.dp else 80.dp,  // 80dp ≈ sentence 2's offset below
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "sentence1_y",
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .imePadding(),  // ← shifts ENTIRE content (logo + sentences + capsule + button) up as one unit
     ) {
-        // ── Top content: Logo + Sentence 1 + Sentence 2 + Capsule ────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -152,6 +200,8 @@ private fun NameCardContent(
             Spacer(Modifier.height(48.dp))
 
             // ── 2. Sentence 1 — "I'll help you find your sound." ───────────
+            // Starts at the LOWER position (sentence 2's spot). Once revealed,
+            // sentence1MovedUp triggers the spring animation that moves it UP.
             BlurRevealText(
                 text = "I'll help you find your sound.",
                 color = Color.White,
@@ -162,18 +212,21 @@ private fun NameCardContent(
                 perCharDurationMillis = 300,
                 staggerMillis = 30,
                 maxBlurDp = 10.dp,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = sentence1BottomPadding),
             )
-            Spacer(Modifier.height(28.dp))
 
             // ── 3. Sentence 2 — "First, what's your name?" ─────────────────
+            // Reveals in the lower position AFTER sentence 1 has moved up.
+            // delayMillis = 2000ms (sentence 1 reveal 200+1300=1500, move-up ~500ms = 2000ms)
             BlurRevealText(
                 text = "First, what's your name?",
                 color = Color.White,
                 fontSize = 20,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0f,
-                delayMillis = 1700,
+                delayMillis = 2000,
                 perCharDurationMillis = 300,
                 staggerMillis = 30,
                 maxBlurDp = 10.dp,
@@ -200,33 +253,32 @@ private fun NameCardContent(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-        }
 
-        // ── Bottom: Continue button — appears BEFORE sentence 2 ──────────────
-        // Anchored to the bottom of the screen, so it stays there until the
-        // keyboard pushes everything up.
-        AnimatedVisibility(
-            visible = showContinueButton,
-            enter = fadeIn(tween(400)) +
-                slideInVertically(
-                    initialOffsetY = { it / 4 },
-                    animationSpec = tween(400),
-                ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(
-                    bottom = WindowInsets.navigationBars.asPaddingValues()
-                        .calculateBottomPadding() + 24.dp,
-                )
-                .align(Alignment.BottomCenter),
-        ) {
-            val canContinue = name.isNotBlank()
-            ContinueButton(
-                enabled = canContinue,
-                onClick = { onComplete(name.ifBlank { "Friend" }) },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            // ── 5. Continue button — appears mid-way through sentence 2 ─────
+            // Positioned BELOW the capsule with a 16dp Spacer, so they NEVER overlap.
+            // Both are in the same Column, so when the capsule slides in, the button
+            // is already in its correct position below it.
+            AnimatedVisibility(
+                visible = showContinueButton,
+                enter = fadeIn(tween(400)) +
+                    slideInVertically(
+                        initialOffsetY = { it / 4 },
+                        animationSpec = tween(400),
+                    ),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Spacer(Modifier.height(16.dp))
+                    val canContinue = name.isNotBlank()
+                    ContinueButton(
+                        enabled = canContinue,
+                        onClick = { onComplete(name.ifBlank { "Friend" }) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         }
     }
 }
@@ -257,7 +309,7 @@ private fun PillTextField(
             value = value,
             onValueChange = onValueChange,
             singleLine = true,
-            cursorBrush = SolidColor(Color(0xFFD4A03A)),  // ginkgo-gold cursor
+            cursorBrush = SolidColor(Color(0xFFD4A03A)),
             textStyle = TextStyle(
                 color = Color.White,
                 fontSize = 18.sp,
@@ -289,8 +341,8 @@ private fun PillTextField(
 }
 
 /** Full-width pill Continue button.
- *  Disabled = #2C2C2E bg + #8E8E93 text (matches inspiration video).
- *  Enabled  = #D4A03A ginkgo-gold bg + black text (Lutea brand accent). */
+ *  Disabled = #2C2C2E bg + #8E8E93 text.
+ *  Enabled  = #D4A03A ginkgo-gold bg + black text. */
 @Composable
 private fun ContinueButton(
     enabled: Boolean,
