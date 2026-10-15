@@ -55,7 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rajatxo.lutea.R
-import com.rajatxo.lutea.ui.components.BlurRevealText
+import com.rajatxo.lutea.ui.components.CloudWipeText
 import com.rajatxo.lutea.ui.foundation.LuteaBackground
 import kotlinx.coroutines.delay
 
@@ -104,10 +104,12 @@ private fun NameCardContent(
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
 
-    // Show input + button after the text reveals settle (~2000ms after composition).
+    // Show input + button after the text reveals settle (~3800ms after composition:
+    // line 1 starts at 200ms, sweeps 1200ms → ends ~1400ms; line 2 starts at 1500ms,
+    // sweeps 900ms → ends ~2400ms; give a 400ms buffer for the eye to settle).
     var showForm by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        delay(2000)
+        delay(2800)
         showForm = true
     }
 
@@ -147,7 +149,8 @@ private fun NameCardContent(
             Spacer(Modifier.height(48.dp))
 
             // ── 2. Primary text — "I'll help you find your sound." ────────
-            BlurRevealText(
+            // Cloud-wipe reveal: text is static, blur cloud sweeps left→right.
+            CloudWipeText(
                 text = "I'll help you find your sound.",
                 color = Color.White,
                 fontSize = 24,
@@ -155,22 +158,22 @@ private fun NameCardContent(
                 textAlign = TextAlign.Center,
                 lineHeight = 32,
                 delayMillis = 200,
-                durationMillis = 900,
-                maxBlurDp = 20.dp,
+                durationMillis = 1200,
+                cloudWidthFraction = 0.25f,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(28.dp))
 
             // ── 3. Secondary text — "First, what's your name?" ────────────
-            BlurRevealText(
+            CloudWipeText(
                 text = "First, what's your name?",
                 color = Color.White,
                 fontSize = 20,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
-                delayMillis = 1100,
-                durationMillis = 700,
-                maxBlurDp = 18.dp,
+                delayMillis = 1500,  // wait for line 1's sweep to finish
+                durationMillis = 900,
+                cloudWidthFraction = 0.30f,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(40.dp))
