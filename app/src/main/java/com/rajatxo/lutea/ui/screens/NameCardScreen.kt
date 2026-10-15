@@ -55,7 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rajatxo.lutea.R
-import com.rajatxo.lutea.ui.components.TypingBlurText
+import com.rajatxo.lutea.ui.components.BlurRevealText
 import com.rajatxo.lutea.ui.foundation.LuteaBackground
 import kotlinx.coroutines.delay
 
@@ -104,13 +104,13 @@ private fun NameCardContent(
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
 
-    // Show input + button after the typing animations settle:
-    // line 1: delay 200ms + 1500ms type = ends ~1700ms
-    // line 2: delay 1900ms + 1100ms type = ends ~3000ms
-    // give ~500ms buffer for the eye to settle → ~3500ms
+    // Show input + button after the per-character blur reveals settle:
+    // line 1: delay 200ms + (31 chars * 50ms stagger) + 600ms perChar = ~2350ms
+    // line 2: delay 2250ms + (24 chars * 50ms stagger) + 500ms perChar = ~3950ms
+    // give ~400ms buffer → ~4400ms
     var showForm by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        delay(3500)
+        delay(4400)
         showForm = true
     }
 
@@ -150,33 +150,37 @@ private fun NameCardContent(
             Spacer(Modifier.height(48.dp))
 
             // ── 2. Primary text — "I'll help you find your sound." ────────
-            // Typing-blur reveal: text types fast letter-by-letter, last 2 chars
-            // are blurred (blur follows the cursor as it moves right).
-            TypingBlurText(
+            // Per-character blur reveal (codrops Effect 1 port):
+            //   each char starts blur(10dp)+alpha(0), animates to blur(0dp)+alpha(1)
+            //   staggered by 50ms per char → blur cloud sweeps left→right.
+            BlurRevealText(
                 text = "I'll help you find your sound.",
                 color = Color.White,
                 fontSize = 24,
                 fontWeight = FontWeight.Normal,
                 letterSpacing = 0f,
                 delayMillis = 200,
-                durationMillis = 1500,
-                blurTrailChars = 2,
-                blurRadiusDp = 8.dp,
+                perCharDurationMillis = 600,
+                staggerMillis = 50,
+                maxBlurDp = 10.dp,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(28.dp))
 
             // ── 3. Secondary text — "First, what's your name?" ────────────
-            TypingBlurText(
+            // Starts after line 1's last char finishes:
+            //   delay 200ms + (25 chars * 50ms stagger) + 600ms perChar = ~2050ms
+            //   + 200ms buffer → starts at 2250ms
+            BlurRevealText(
                 text = "First, what's your name?",
                 color = Color.White,
                 fontSize = 20,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0f,
-                delayMillis = 1900,  // wait for line 1's typing to finish (200 + 1500 = 1700ms)
-                durationMillis = 1100,
-                blurTrailChars = 2,
-                blurRadiusDp = 8.dp,
+                delayMillis = 2250,
+                perCharDurationMillis = 500,
+                staggerMillis = 50,
+                maxBlurDp = 10.dp,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(40.dp))
