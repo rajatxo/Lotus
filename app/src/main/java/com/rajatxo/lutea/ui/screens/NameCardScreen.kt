@@ -55,7 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rajatxo.lutea.R
-import com.rajatxo.lutea.ui.components.BlurRevealText
+import com.rajatxo.lutea.ui.components.GlowFlowText
 import com.rajatxo.lutea.ui.foundation.LuteaBackground
 import kotlinx.coroutines.delay
 
@@ -104,13 +104,13 @@ private fun NameCardContent(
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
 
-    // Show input + button after the text reveals settle:
-    // line 1: delay 200ms + 500ms anim = ends ~700ms
-    // line 2: delay 800ms + 500ms anim = ends ~1300ms
-    // give ~500ms buffer for the eye to settle → ~1800ms
+    // Show input + button after the glow sweeps settle:
+    // line 1: delay 200ms + 1500ms sweep = ends ~1700ms
+    // line 2: delay 1800ms + 1200ms sweep = ends ~3000ms
+    // give ~500ms buffer for the eye to settle → ~3500ms
     var showForm by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        delay(1800)
+        delay(3500)
         showForm = true
     }
 
@@ -150,8 +150,8 @@ private fun NameCardContent(
             Spacer(Modifier.height(48.dp))
 
             // ── 2. Primary text — "I'll help you find your sound." ────────
-            // Whole text blurs uniformly from 16dp → 0dp over 500ms (Gemini pattern).
-            BlurRevealText(
+            // Glow flow: text is sharp from the start, soft white glow sweeps L→R.
+            GlowFlowText(
                 text = "I'll help you find your sound.",
                 color = Color.White,
                 fontSize = 24,
@@ -159,22 +159,22 @@ private fun NameCardContent(
                 textAlign = TextAlign.Center,
                 lineHeight = 32,
                 delayMillis = 200,
-                durationMillis = 500,
-                maxBlurDp = 16.dp,
+                durationMillis = 1500,
+                glowWidthFraction = 0.3f,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(28.dp))
 
             // ── 3. Secondary text — "First, what's your name?" ────────────
-            BlurRevealText(
+            GlowFlowText(
                 text = "First, what's your name?",
                 color = Color.White,
                 fontSize = 20,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
-                delayMillis = 800,  // wait for line 1's blur to finish (200 + 500 = 700ms)
-                durationMillis = 500,
-                maxBlurDp = 16.dp,
+                delayMillis = 1800,  // wait for line 1's glow sweep to finish (200 + 1500 = 1700ms)
+                durationMillis = 1200,
+                glowWidthFraction = 0.3f,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(40.dp))
