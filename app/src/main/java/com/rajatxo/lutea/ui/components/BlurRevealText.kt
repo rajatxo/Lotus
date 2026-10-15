@@ -2,6 +2,7 @@ package com.rajatxo.lutea.ui.components
 
 import android.graphics.RenderEffect
 import android.graphics.Shader
+import android.os.Build
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -143,8 +144,12 @@ fun BlurRevealText(
             .wrapContentSize(align = Alignment.Center)
             // Apply a single Gaussian RenderEffect blur to the whole row.
             // RenderEffect.createBlurEffect uses true Gaussian (not box) blur.
+            // CRITICAL: RenderEffect requires Android 12+ (API 31, Build.VERSION_CODES.S).
+            // Lutea's minSdk is 29 (Android 10). On API 29-30, the android.graphics.RenderEffect
+            // class doesn't exist — referencing it causes NoClassDefFoundError → CRASH.
+            // Guard with Build.VERSION.SDK_INT check so the call is only made on S+.
             .graphicsLayer {
-                if (currentBlurPx > 0f) {
+                if (currentBlurPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     renderEffect = RenderEffect.createBlurEffect(
                         currentBlurPx,
                         currentBlurPx,
