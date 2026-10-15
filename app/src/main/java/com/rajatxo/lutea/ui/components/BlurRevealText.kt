@@ -18,8 +18,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -122,7 +124,7 @@ fun BlurRevealText(
         label = "row_blur",
     )
     // Animate blur radius from maxBlurDp → 0dp.
-    val currentBlurPx = with(androidx.compose.ui.platform.LocalDensity.current) {
+    val currentBlurPx = with(LocalDensity.current) {
         (maxBlurDp * (1f - blurProgress)).toPx()
     }
 
