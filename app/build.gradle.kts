@@ -93,6 +93,9 @@ dependencies {
     // ★ Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
+    // ★ DataStore Preferences — onboarding persistence
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
     // ★ Coil3 — image loading
     implementation("io.coil-kt.coil3:coil-compose:3.0.4")
 
