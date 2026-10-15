@@ -3,6 +3,7 @@ package com.rajatxo.lotus.ui.onboarding
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -100,8 +101,8 @@ fun OnboardingScreen(
             targetState = stage,
             transitionSpec = {
                 // Soft cross-fade (300ms in, 300ms out) — same cadence as the Opal app
-                (fadeIn(tween(600)) + scaleIn(tween(600, initialScale = 0.96f))) togetherWith
-                    (fadeOut(tween(400)) + scaleOut(tween(400, targetScale = 1.04f)))
+                (fadeIn(tween(600)) + scaleIn(tween(600), initialScale = 0.96f)) togetherWith
+                    (fadeOut(tween(400)) + scaleOut(tween(400), targetScale = 1.04f))
             },
             label = "stage_transition",
             contentKey = { it },
