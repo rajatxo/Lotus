@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -62,29 +61,28 @@ import kotlinx.coroutines.delay
 /**
  * NameCardScreen — the first content screen of Lutea.
  *
- * Recreated from the Lutea-Inspiration video (Record_2026-10-15-19-45-47.mp4) which
- * shows the Opal app's name-input screen with its signature blur-in text reveal.
- *
- * Layout (top-to-bottom, vertically centered in the safe area above the keyboard):
- *   1. Lotus logo (top-center, ~15% from top, 120dp)
- *   2. Primary text: "I'll help you find your sound."
- *      → BlurRevealText with delay 200ms, duration 900ms, blur 20dp
- *   3. Secondary text: "First, what's your name?"
- *      → BlurRevealText with delay 1100ms (waits for line 1 to settle), 18dp blur
- *   4. Pill input field — dark fill #1C1C1E, 56dp tall, 28dp radius
- *      → Slides in + fades in AFTER the secondary text reveals (delay ~2000ms)
- *   5. Continue button — full-width pill
- *      → Disabled (#2C2C2E bg + #8E8E93 text) when name is blank
- *      → Enabled (#D4A03A ginkgo-gold bg + black text) when name is filled
+ * Reveal sequence (per Lutea-Inspiration video analysis, frames_keyboard/ dir):
+ *   1. Logo (top-center, 120dp) — visible from t=0
+ *   2. Sentence 1: "I'll help you find your sound."
+ *      → BlurRevealText with delay 200ms, perChar 300ms, stagger 30ms
+ *        (finishes at ~1430ms)
+ *   3. Continue button — slides in at the BOTTOM of the screen (~1500ms, right after
+ *      sentence 1 finishes). Anchored to screen bottom via Box(BottomCenter).
+ *   4. Sentence 2: "First, what's your name?"
+ *      → BlurRevealText with delay 1700ms, finishes at ~2720ms
+ *   5. Name capsule (pill input) — slides in below sentence 2 (~2900ms)
+ *   6. User taps capsule → keyboard opens → ALL elements shift UP together as one unit
+ *      (via Modifier.imePadding() on the root Box).
+ *   7. User taps back to dismiss keyboard → ALL elements shift DOWN together.
  *
  * Universe-fitting rule:
  *   Uses LuteaBackground (teal-tinted gradient + radial glow) instead of pure black,
  *   so this screen feels continuous with the rest of the Lutea app.
  *
  * Keyboard behavior:
- *   `Modifier.imePadding()` shifts the entire Column up when the keyboard appears.
- *   This recreates the inspiration video's "everything slides up" behavior — the
- *   logo moves toward the top edge, the button sits just above the keyboard.
+ *   Modifier.imePadding() on the root Box shifts the ENTIRE content (logo + sentences +
+ *   capsule + button) up when keyboard appears, and back down when it disappears.
+ *   Everything moves together as ONE unit — relative spacing preserved.
  */
 @Composable
 fun NameCardScreen(
@@ -104,20 +102,25 @@ private fun NameCardContent(
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
 
-    // Show input + button after the per-character blur reveals settle:
-    // line 1: delay 200ms + (31 chars * 30ms stagger) + 300ms perChar = ~1430ms
-    // line 2: delay 1700ms + (24 chars * 30ms stagger) + 300ms perChar = ~2720ms
-    // give ~400ms buffer → ~3100ms
-    var showForm by remember { mutableStateOf(false) }
+    // Timing (matches Lutea-Inspiration video analysis):
+    //   sentence 1: delay 200ms + (31 chars * 30ms) + 300ms = ~1430ms
+    //   continue button appears at ~1500ms (right after sentence 1)
+    //   sentence 2: delay 1700ms + (24 chars * 30ms) + 300ms = ~2720ms
+    //   capsule appears at ~2900ms (right after sentence 2)
+    var showContinueButton by remember { mutableStateOf(false) }
+    var showCapsule by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
-        delay(3100)
-        showForm = true
+        delay(1500)
+        showContinueButton = true
+        delay(1400)  // wait for sentence 2 to finish (~2900ms total)
+        showCapsule = true
     }
 
-    // After the form appears, auto-focus the input so the keyboard slides up
-    // (matches the inspiration video where keyboard appears right after input shows).
-    LaunchedEffect(showForm) {
-        if (showForm) {
+    // After the capsule appears, auto-focus it so the keyboard slides up
+    // (matches the inspiration video where keyboard appears right after capsule shows).
+    LaunchedEffect(showCapsule) {
+        if (showCapsule) {
             delay(300)
             focusRequester.requestFocus()
         }
@@ -126,18 +129,17 @@ private fun NameCardContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .imePadding(),  // ← shifts everything up when keyboard appears
-        contentAlignment = Alignment.TopCenter,
+            .imePadding(),  // ← shifts ENTIRE content (logo + sentences + capsule + button) up as one unit
     ) {
+        // ── Top content: Logo + Sentence 1 + Sentence 2 + Capsule ────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .padding(
                     top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 56.dp,
-                    bottom = WindowInsets.navigationBars.asPaddingValues()
-                        .calculateBottomPadding() + 24.dp,
-                ),
+                )
+                .align(Alignment.TopCenter),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // ── 1. Lotus logo — top-center, 120dp ──────────────────────────
@@ -149,10 +151,7 @@ private fun NameCardContent(
             )
             Spacer(Modifier.height(48.dp))
 
-            // ── 2. Primary text — "I'll help you find your sound." ────────
-            // Per-character blur reveal (codrops Effect 1 port):
-            //   each char starts blur(10dp)+alpha(0), animates to blur(0dp)+alpha(1)
-            //   staggered by 30ms per char → blur cloud sweeps left→right fast.
+            // ── 2. Sentence 1 — "I'll help you find your sound." ───────────
             BlurRevealText(
                 text = "I'll help you find your sound.",
                 color = Color.White,
@@ -167,10 +166,7 @@ private fun NameCardContent(
             )
             Spacer(Modifier.height(28.dp))
 
-            // ── 3. Secondary text — "First, what's your name?" ────────────
-            // Starts after line 1's last char finishes:
-            //   delay 200ms + (31 chars * 30ms stagger) + 300ms perChar = ~1430ms
-            //   + 270ms buffer → starts at 1700ms
+            // ── 3. Sentence 2 — "First, what's your name?" ─────────────────
             BlurRevealText(
                 text = "First, what's your name?",
                 color = Color.White,
@@ -185,38 +181,52 @@ private fun NameCardContent(
             )
             Spacer(Modifier.height(40.dp))
 
-            // ── 4. Input field + 5. Continue button — slide in after 2s ───
+            // ── 4. Name capsule — slides in AFTER sentence 2 finishes ──────
             AnimatedVisibility(
-                visible = showForm,
+                visible = showCapsule,
                 enter = fadeIn(tween(400)) +
                     slideInVertically(
                         initialOffsetY = { it / 4 },
                         animationSpec = tween(400),
                     ),
             ) {
-                Column(
+                PillTextField(
+                    value = name,
+                    onValueChange = { name = it.take(40) },
+                    placeholder = "Your name",
+                    focusRequester = focusRequester,
+                    imeAction = ImeAction.Done,
+                    onImeAction = { keyboard?.hide() },
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    PillTextField(
-                        value = name,
-                        onValueChange = { name = it.take(40) },
-                        placeholder = "Your name",
-                        focusRequester = focusRequester,
-                        imeAction = ImeAction.Done,
-                        onImeAction = { keyboard?.hide() },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(20.dp))
-
-                    val canContinue = name.isNotBlank()
-                    ContinueButton(
-                        enabled = canContinue,
-                        onClick = { onComplete(name.ifBlank { "Friend" }) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+                )
             }
+        }
+
+        // ── Bottom: Continue button — appears BEFORE sentence 2 ──────────────
+        // Anchored to the bottom of the screen, so it stays there until the
+        // keyboard pushes everything up.
+        AnimatedVisibility(
+            visible = showContinueButton,
+            enter = fadeIn(tween(400)) +
+                slideInVertically(
+                    initialOffsetY = { it / 4 },
+                    animationSpec = tween(400),
+                ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(
+                    bottom = WindowInsets.navigationBars.asPaddingValues()
+                        .calculateBottomPadding() + 24.dp,
+                )
+                .align(Alignment.BottomCenter),
+        ) {
+            val canContinue = name.isNotBlank()
+            ContinueButton(
+                enabled = canContinue,
+                onClick = { onComplete(name.ifBlank { "Friend" }) },
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
