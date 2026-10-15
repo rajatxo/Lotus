@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Lotus"
+rootProject.name = "Lutea"
 include(":app")

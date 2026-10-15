@@ -1,4 +1,4 @@
-name: Build Lotus APK
+name: Build Lutea APK
 
 on:
   push:
@@ -13,6 +13,9 @@ jobs:
       actions: read
 
     env:
+      # NOTE: secret names are left as LOTUS_* because they already exist in the
+      # repo's GitHub secrets. Renaming them would require manually recreating
+      # the secrets. We'll keep the env var names but everything else is Lutea.
       LOTUS_KEYSTORE_BASE64: ${{ secrets.LOTUS_KEYSTORE_BASE64 }}
       LOTUS_STORE_PASSWORD: ${{ secrets.LOTUS_STORE_PASSWORD }}
       LOTUS_KEY_ALIAS: ${{ secrets.LOTUS_KEY_ALIAS }}
@@ -39,9 +42,9 @@ jobs:
     - name: Decode signing keystore
       run: |
         if [ -n "$LOTUS_KEYSTORE_BASE64" ]; then
-          echo "$LOTUS_KEYSTORE_BASE64" | base64 -d > lotus-release.jks
+          echo "$LOTUS_KEYSTORE_BASE64" | base64 -d > lutea-release.jks
           cat > keystore.properties << 'PROPS_EOF'
-        storeFile=lotus-release.jks
+        storeFile=lutea-release.jks
         storePassword=PLACEHOLDER_STORE_PASS
         keyAlias=PLACEHOLDER_KEY_ALIAS
         keyPassword=PLACEHOLDER_KEY_PASS
@@ -68,8 +71,8 @@ jobs:
         echo "Bumping: $CURRENT_NAME ($CURRENT_CODE) -> $NEW_NAME ($NEW_CODE)"
         sed -i "s/versionCode = .*/versionCode = $NEW_CODE/" app/build.gradle.kts
         sed -i "s/versionName = .*/versionName = \"$NEW_NAME\"/" app/build.gradle.kts
-        git config user.name "Lotus CI"
-        git config user.email "ci@lotus.local"
+        git config user.name "Lutea CI"
+        git config user.email "ci@lutea.local"
         git add app/build.gradle.kts
         git commit -m "chore: auto-bump to v$NEW_NAME" || true
         git push origin main || true
@@ -82,19 +85,19 @@ jobs:
         VERSION_NAME=$(grep 'versionName' app/build.gradle.kts | head -1 | sed 's/.*= *"//; s/".*//')
         APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
         if [ -n "$APK_PATH" ]; then
-          mv "$APK_PATH" "app/build/outputs/apk/release/Lotus-v${VERSION_NAME}.apk"
+          mv "$APK_PATH" "app/build/outputs/apk/release/Lutea-v${VERSION_NAME}.apk"
         fi
 
     - name: Upload debug APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: lotus-debug-apk
+        name: lutea-debug-apk
         path: app/build/outputs/apk/debug/*.apk
         retention-days: 7
 
     - name: Upload release APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: lotus-release-apk
+        name: lutea-release-apk
         path: app/build/outputs/apk/release/*.apk
         retention-days: 30

@@ -1,1 +1,1 @@
-# Lotus - A beautiful offline music player.
+# Lutea — a music player.

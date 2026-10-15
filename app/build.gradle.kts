@@ -15,15 +15,15 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.rajatxo.lotus"
+    namespace = "com.rajatxo.lutea"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.rajatxo.lotus"
+        applicationId = "com.rajatxo.lutea"
         minSdk = 29
         targetSdk = 35
-        versionCode = 107
-        versionName = "0.1.7"
+        versionCode = 1
+        versionName = "0.1.0"
     }
 
     signingConfigs {
@@ -41,14 +41,14 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-DEBUG"
-            manifestPlaceholders["appName"] = "Lotus"
+            manifestPlaceholders["appName"] = "Lutea"
         }
 
         release {
             versionNameSuffix = "-RELEASE"
             isMinifyEnabled = true
             isShrinkResources = true
-            manifestPlaceholders["appName"] = "Lotus"
+            manifestPlaceholders["appName"] = "Lutea"
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -92,22 +92,4 @@ dependencies {
 
     // ★ Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
-
-    // ★ DataStore Preferences — onboarding persistence
-    implementation("androidx.datastore:datastore-preferences:1.1.1")
-
-    // ★ Coil3 — image loading
-    implementation("io.coil-kt.coil3:coil-compose:3.0.4")
-
-    // ★ Palette — extract colors from album art
-    implementation("androidx.palette:palette-ktx:1.0.0")
-
-    // ★ MaterialKolor — dynamic color schemes from album art
-    implementation("com.materialkolor:material-kolor:2.0.0")
-
-    // ★ Media3 — ExoPlayer + MediaSession
-    implementation("androidx.media3:media3-exoplayer:1.5.1")
-    implementation("androidx.media3:media3-session:1.5.1")
-    implementation("androidx.media3:media3-ui:1.5.1")
-    implementation("androidx.media3:media3-decoder:1.5.1")
 }

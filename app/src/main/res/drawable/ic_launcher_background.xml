@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Lotus adaptive icon background — pure black, dark-first design -->
+<!-- Lutea adaptive icon background — pure black, dark-first design -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">

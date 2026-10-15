@@ -1,3 +1,2 @@
 # Default ProGuard rules
--keep class com.rajatxo.lotus.** { *; }
--keep class androidx.media3.** { *; }
+-keep class com.rajatxo.lutea.** { *; }
