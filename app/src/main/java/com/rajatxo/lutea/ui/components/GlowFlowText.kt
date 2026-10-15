@@ -134,8 +134,12 @@ fun GlowFlowText(
         // We pass explicit start/end pixel positions so the gradient covers ONLY the
         // glow band. Default Clamp tile mode stretches the edge colors (Transparent)
         // to the rest of the text, keeping the glow localized.
+        //
+        // Using linearGradient (not horizontalGradient) because horizontalGradient
+        // takes startX: Float / endX: Float, but we want full control over start/end
+        // Offset (matches both x and y axes).
         val halfGlow = glowWidthFraction / 2f
-        val glowBrush = Brush.horizontalGradient(
+        val glowBrush = Brush.linearGradient(
             colors = listOf(
                 Color.Transparent,        // left edge of glow band
                 glowColor,                 // center of glow (brightest)
