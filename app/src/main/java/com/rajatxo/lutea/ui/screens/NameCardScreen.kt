@@ -105,12 +105,12 @@ private fun NameCardContent(
     val focusRequester = remember { FocusRequester() }
 
     // Show input + button after the per-character blur reveals settle:
-    // line 1: delay 200ms + (31 chars * 50ms stagger) + 600ms perChar = ~2350ms
-    // line 2: delay 2250ms + (24 chars * 50ms stagger) + 500ms perChar = ~3950ms
-    // give ~400ms buffer → ~4400ms
+    // line 1: delay 200ms + (31 chars * 30ms stagger) + 300ms perChar = ~1430ms
+    // line 2: delay 1700ms + (24 chars * 30ms stagger) + 300ms perChar = ~2720ms
+    // give ~400ms buffer → ~3100ms
     var showForm by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        delay(4400)
+        delay(3100)
         showForm = true
     }
 
@@ -152,7 +152,7 @@ private fun NameCardContent(
             // ── 2. Primary text — "I'll help you find your sound." ────────
             // Per-character blur reveal (codrops Effect 1 port):
             //   each char starts blur(10dp)+alpha(0), animates to blur(0dp)+alpha(1)
-            //   staggered by 50ms per char → blur cloud sweeps left→right.
+            //   staggered by 30ms per char → blur cloud sweeps left→right fast.
             BlurRevealText(
                 text = "I'll help you find your sound.",
                 color = Color.White,
@@ -160,8 +160,8 @@ private fun NameCardContent(
                 fontWeight = FontWeight.Normal,
                 letterSpacing = 0f,
                 delayMillis = 200,
-                perCharDurationMillis = 600,
-                staggerMillis = 50,
+                perCharDurationMillis = 300,
+                staggerMillis = 30,
                 maxBlurDp = 10.dp,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -169,17 +169,17 @@ private fun NameCardContent(
 
             // ── 3. Secondary text — "First, what's your name?" ────────────
             // Starts after line 1's last char finishes:
-            //   delay 200ms + (25 chars * 50ms stagger) + 600ms perChar = ~2050ms
-            //   + 200ms buffer → starts at 2250ms
+            //   delay 200ms + (31 chars * 30ms stagger) + 300ms perChar = ~1430ms
+            //   + 270ms buffer → starts at 1700ms
             BlurRevealText(
                 text = "First, what's your name?",
                 color = Color.White,
                 fontSize = 20,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0f,
-                delayMillis = 2250,
-                perCharDurationMillis = 500,
-                staggerMillis = 50,
+                delayMillis = 1700,
+                perCharDurationMillis = 300,
+                staggerMillis = 30,
                 maxBlurDp = 10.dp,
                 modifier = Modifier.fillMaxWidth(),
             )
