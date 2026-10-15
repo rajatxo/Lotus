@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
@@ -200,12 +201,17 @@ private fun BrandStage() {
                 modifier = Modifier.scale(breathScale),
             )
             Spacer(Modifier.height(20.dp))
-            Text(
+            // Wordmark reveals with a blur-focus after the bud mark appears
+            BlurRevealText(
                 text = "Lotus",
                 color = Color.White,
-                fontSize = 56.sp,
+                fontSize = 56,
                 fontWeight = FontWeight.Medium,
-                letterSpacing = (-0.5).sp,
+                letterSpacing = -0.5f,
+                delayMillis = 350,
+                durationMillis = 1200,
+                maxBlurDp = 24.dp,
+                textAlign = TextAlign.Center,
             )
         }
     }
@@ -238,13 +244,16 @@ private fun BudStage(onTap: () -> Unit) {
                         .calculateBottomPadding() + 56.dp,
                 ),
         ) {
-            // Header text — "Look closer." — top third
-            Text(
+            // Header text — "Look closer." — top third, blurs into focus
+            BlurRevealText(
                 text = "Look closer.",
                 color = Color.White,
-                fontSize = 32.sp,
+                fontSize = 32,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
+                delayMillis = 150,
+                durationMillis = 1100,
+                maxBlurDp = 18.dp,
             )
 
             // Hero lotus bud — center, full size, no glow yet
@@ -296,12 +305,15 @@ private fun BloomStage(onTap: () -> Unit) {
                         .calculateBottomPadding() + 56.dp,
                 ),
         ) {
-            Text(
+            BlurRevealText(
                 text = "Let it bloom.",
                 color = Color.White,
-                fontSize = 32.sp,
+                fontSize = 32,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
+                delayMillis = 150,
+                durationMillis = 1100,
+                maxBlurDp = 18.dp,
             )
 
             LotusBloom(
@@ -366,22 +378,28 @@ private fun WelcomeStage(
             )
             Spacer(Modifier.height(28.dp))
 
-            Text(
+            BlurRevealText(
                 text = "I'll help you find your sound.",
                 color = Color.White,
-                fontSize = 28.sp,
+                fontSize = 28,
                 fontWeight = FontWeight.Normal,
                 textAlign = TextAlign.Center,
-                lineHeight = 36.sp,
+                lineHeight = 36,
+                delayMillis = 300,
+                durationMillis = 1000,
+                maxBlurDp = 16.dp,
             )
             Spacer(Modifier.height(40.dp))
 
-            Text(
+            BlurRevealText(
                 text = "First, what's your name?",
                 color = Color.White,
-                fontSize = 22.sp,
+                fontSize = 22,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
+                delayMillis = 1000,
+                durationMillis = 900,
+                maxBlurDp = 14.dp,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(20.dp))
@@ -412,11 +430,27 @@ private fun WelcomeStage(
 // Reusable bits
 // ────────────────────────────────────────────────────────────────────────────────────
 
-/** "TAP TO CONTINUE" with a subtle pulsing alpha — 0.55 → 1.0 → 0.55, 1.8s cycle. */
+/**
+ * "TAP TO CONTINUE" — first reveals with a cinematic blur-in entrance (delayed so the
+ * header reads first), then settles into a continuous pulsing alpha (0.55 ↔ 1.0, 1.8s cycle).
+ */
 @Composable
 private fun PulsingTapToContinue() {
+    // Entrance — blur-in, delayed so the header reveals first
+    var started by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(550)
+        started = true
+    }
+    val entrance by animateFloatAsState(
+        targetValue = if (started) 1f else 0f,
+        animationSpec = tween(900, easing = LinearEasing),
+        label = "tap_entrance",
+    )
+
+    // Continuous pulse — alpha oscillates 0.55 ↔ 1.0
     val infiniteTransition = rememberInfiniteTransition(label = "tap_pulse")
-    val alpha by infiniteTransition.animateFloat(
+    val pulse by infiniteTransition.animateFloat(
         initialValue = 0.55f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
@@ -425,13 +459,22 @@ private fun PulsingTapToContinue() {
         ),
         label = "tap_alpha",
     )
+
+    // Combine: blur fades out during entrance, alpha = (entrance progress) × (current pulse)
+    val currentBlur = 14.dp * (1f - entrance)
+    val currentAlpha = entrance * pulse
+    val currentScale = 1.04f - 0.04f * entrance
+
     Text(
         text = "TAP TO CONTINUE",
         color = Color(0xFF888888),
         fontSize = 13.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 1.4.sp,
-        modifier = Modifier.alpha(alpha),
+        modifier = Modifier
+            .blur(currentBlur)
+            .alpha(currentAlpha)
+            .scale(currentScale),
     )
 }
 
