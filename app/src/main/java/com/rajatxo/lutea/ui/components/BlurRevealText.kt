@@ -1,7 +1,6 @@
 package com.rajatxo.lutea.ui.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -11,9 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -24,55 +21,55 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 /**
- * Cinematic blur-in text reveal — the signature text animation from the Opal/Lutea
- * inspiration video.
+ * Blur-reveal text — the whole text element animates from blurred (16dp) to sharp (0dp)
+ * over [durationMillis]. Auto-triggers after [delayMillis] so multiple lines can stagger.
  *
- * The text starts heavily blurred + invisible, then animates to sharp + opaque over
- * [durationMillis] with a slight scale settle (1.04 → 1.0) — feels like a camera
- * lens focusing, not a generic fade.
+ * Pattern follows Gemini's reference implementation:
+ *   val blurRadius by animateDpAsState(
+ *       targetValue = if (isRevealed) 0.dp else 16.dp,
+ *       animationSpec = tween(500),
+ *   )
+ *   Box(modifier = Modifier.blur(blurRadius)) { Text(...) }
  *
- * Three properties animate together, driven by a single progress Float 0 → 1:
- *   alpha : 0   → 1       (text materialises)
- *   blur  : 20dp → 0dp    (focus locks in)
- *   scale : 1.04 → 1.0    (settle from "too close")
+ * Differences from Gemini's tap-to-flip demo:
+ *   - Auto-triggers on first composition (no tap required)
+ *   - Accepts delayMillis so multiple lines can stagger their reveals
+ *   - Takes text-styling parameters so it can be reused for headlines, subheads, etc.
  *
- * Per the inspiration video, the FULL text appears blurred at once (not char-by-char
- * typewriter) and then focuses sharp — that's what gives it the dream-like quality.
- *
- * @param text          the text to display
- * @param delayMillis   how long to wait before starting the reveal (for staggered sequencing)
- * @param durationMillis how long the blur-to-sharp transition takes
- * @param maxBlurDp     starting blur radius — 20dp feels cinematic; lower for subtle effect
+ * @param text           the text to display
+ * @param delayMillis    how long to wait before starting the blur reveal
+ * @param durationMillis how long the blur-to-sharp transition takes (Gemini used 500ms)
+ * @param maxBlurDp      starting blur radius (Gemini used 16dp)
  */
 @Composable
 fun BlurRevealText(
     text: String,
     modifier: Modifier = Modifier,
     delayMillis: Int = 0,
-    durationMillis: Int = 800,
-    maxBlurDp: Dp = 20.dp,
+    durationMillis: Int = 500,
+    maxBlurDp: Dp = 16.dp,
     color: Color = Color.White,
-    fontSize: Int = 28,
+    fontSize: Int = 24,
     fontWeight: FontWeight = FontWeight.Normal,
     letterSpacing: Float = 0f,
     textAlign: TextAlign = TextAlign.Center,
     lineHeight: Int? = null,
 ) {
-    var started by remember { mutableStateOf(false) }
+    // Tracks whether the content is revealed (true) or hidden/blurred (false)
+    var isRevealed by remember { mutableStateOf(false) }
+
+    // Auto-trigger after delayMillis
     LaunchedEffect(text) {
         if (delayMillis > 0) delay(delayMillis.toLong())
-        started = true
+        isRevealed = true
     }
 
-    val progress by animateFloatAsState(
-        targetValue = if (started) 1f else 0f,
-        animationSpec = tween(durationMillis, easing = LinearEasing),
-        label = "blur_reveal",
+    // Smoothly animates the blur from maxBlurDp (blurry) down to 0.dp (clear)
+    val blurRadius by animateDpAsState(
+        targetValue = if (isRevealed) 0.dp else maxBlurDp,
+        animationSpec = tween(durationMillis = durationMillis),
+        label = "blurRevealAnimation",
     )
-
-    val currentBlur = maxBlurDp * (1f - progress)
-    val currentAlpha = progress
-    val currentScale = 1.04f - 0.04f * progress
 
     val style = TextStyle(
         color = color,
@@ -85,9 +82,6 @@ fun BlurRevealText(
     Text(
         text = text,
         style = style,
-        modifier = modifier
-            .blur(currentBlur)
-            .alpha(currentAlpha)
-            .scale(currentScale),
+        modifier = modifier.blur(blurRadius),
     )
 }
