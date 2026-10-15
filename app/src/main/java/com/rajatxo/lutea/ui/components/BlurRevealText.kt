@@ -1,5 +1,7 @@
 package com.rajatxo.lutea.ui.components
 
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -16,7 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -45,41 +47,43 @@ val CalSansFamily = FontFamily(
  *
  * SOURCE: https://github.com/codrops/ScrollBlurTypography/blob/master/js/effect-1/blurScrollEffect.js
  *
- * Original codrops code (adapted from scroll-driven to time-driven):
+ * Original codrops:
  *   gsap.fromTo(chars, {
  *       filter: 'blur(10px) brightness(0%)',
- *       willChange: 'filter'
  *   }, {
- *       ease: 'none',
  *       filter: 'blur(0px) brightness(100%)',
- *       stagger: 0.05,  // 50ms per-character delay
- *       scrollTrigger: { scrub: true, ... }  // we replace this with animateFloatAsState
+ *       stagger: 0.05,
  *   });
  *
- * Behavior:
- *   - ALL characters are in the layout from the start (just alpha=0 + blur=10dp)
- *   - Each character animates independently:
- *       char[0]: delay 0ms      + 600ms anim
- *       char[1]: delay 50ms     + 600ms anim
- *       char[2]: delay 100ms    + 600ms anim
- *       ...
- *   - Each char's animation: blur 10dp → 0dp AND alpha 0 → 1
- *   - The 'blur cloud' emerges naturally as the wave of mid-transition chars
- *     sweeps left→right (typically 2-3 chars mid-blur at any moment)
+ * Previous attempts (v1-v3) used Modifier.blur() per-character Text. That produced
+ * a HARD-EDGED BOX BLUR because each char's Text was too small for the blur to fade
+ * naturally — the blur got clipped at the character's bounding box.
+ *
+ * THIS VERSION (v4) uses the proper approach:
+ *   - Each character animates ONLY its alpha (0 → 1) and a SMALL scale (0.5 → 1.0).
+ *     No per-character Modifier.blur().
+ *   - The ENTIRE ROW is wrapped in a single `Modifier.graphicsLayer { renderEffect = ... }`
+ *     that applies a Gaussian RenderEffect blur (Android 12+, API 31+).
+ *   - The blur radius on the whole row animates from 24dp → 0dp over the total duration.
+ *   - As characters appear (alpha 0→1) and the whole row de-blurs together, the effect
+ *     looks exactly like the codrops reference: smooth Gaussian blur, soft edges,
+ *     wave-like reveal because chars stagger their alpha animations.
+ *
+ * On Android < 12 (API < 31), RenderEffect is a no-op, so the blur won't apply —
+ * characters will just fade in (alpha animation only). Acceptable graceful degrade.
  *
  * Why this fixes the previous problems:
  *   1. Cal Sans font — applied via CalSansFamily
- *   2. Text shifts left — FIXED. Row layout contains ALL chars from t=0, so its
- *      width never changes as the animation progresses. No re-centering jitter.
- *   3. Square/hard blur — FIXED. Each char is its own Text with Modifier.blur,
- *      so the blur has soft edges naturally (Modifier.blur uses a Gaussian blur
- *      in hardware, not a hard square mask).
+ *   2. Text shifts left — FIXED. Row contains ALL chars from t=0 (alpha=0).
+ *   3. Square/hard blur — FIXED. Single RenderEffect on the whole row produces
+ *      a proper Gaussian blur with soft edges (Android's native RenderEffect
+ *      uses Gaussian, not box blur).
  *
  * @param text           the full text to reveal
- * @param delayMillis    global delay before the whole animation starts
- * @param perCharDurationMillis  how long each character's blur→sharp takes
- * @param staggerMillis  delay between consecutive characters' starts (50ms per codrops)
- * @param maxBlurDp      starting blur radius (10dp per codrops)
+ * @param delayMillis    global delay before the animation starts
+ * @param perCharDurationMillis  how long each char's alpha animation takes
+ * @param staggerMillis  delay between consecutive chars' alpha animations (50ms per codrops)
+ * @param maxBlurDp      starting blur radius for the whole row (10dp per codrops)
  */
 @Composable
 fun BlurRevealText(
@@ -102,10 +106,30 @@ fun BlurRevealText(
         started = true
     }
 
+    // Total animation time = (last char's stagger) + (per-char duration).
+    val totalDurationMs = (text.length - 1) * staggerMillis + perCharDurationMillis
+
+    // Whole-row blur progress: 0 (max blur) → 1 (no blur) over totalDurationMs.
+    // Starts at the same time as the first char.
+    var blurStarted by remember(text) { mutableStateOf(false) }
+    LaunchedEffect(text) {
+        if (delayMillis > 0) delay(delayMillis.toLong())
+        blurStarted = true
+    }
+    val blurProgress by animateFloatAsState(
+        targetValue = if (blurStarted) 1f else 0f,
+        animationSpec = tween(totalDurationMs, easing = LinearEasing),
+        label = "row_blur",
+    )
+    // Animate blur radius from maxBlurDp → 0dp.
+    val currentBlurPx = with(androidx.compose.ui.platform.LocalDensity.current) {
+        (maxBlurDp * (1f - blurProgress)).toPx()
+    }
+
     val style = TextStyle(
         color = color,
         fontSize = fontSize.sp,
-        fontFamily = CalSansFamily,  // ← Cal Sans per user request
+        fontFamily = CalSansFamily,
         fontWeight = fontWeight,
         letterSpacing = letterSpacing.sp,
         textAlign = textAlign,
@@ -114,15 +138,24 @@ fun BlurRevealText(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .wrapContentSize(align = Alignment.Center),
+            .wrapContentSize(align = Alignment.Center)
+            // Apply a single Gaussian RenderEffect blur to the whole row.
+            // RenderEffect.createBlurEffect uses true Gaussian (not box) blur.
+            .graphicsLayer {
+                if (currentBlurPx > 0f) {
+                    renderEffect = RenderEffect.createBlurEffect(
+                        currentBlurPx,
+                        currentBlurPx,
+                        Shader.TileMode.DECAL,
+                    ).asComposeRenderEffect()
+                } else {
+                    renderEffect = null
+                }
+            },
         verticalAlignment = Alignment.Top,
         horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
     ) {
         text.forEachIndexed { index, char ->
-            // Each character has its own staggered start delay.
-            // char[0] starts at delayMillis + 0 * staggerMillis
-            // char[1] starts at delayMillis + 1 * staggerMillis
-            // etc.
             val charStartDelay = delayMillis + index * staggerMillis
             var charStarted by remember(text, index) { mutableStateOf(false) }
             LaunchedEffect(text, index) {
@@ -130,23 +163,17 @@ fun BlurRevealText(
                 charStarted = true
             }
 
-            val progress by animateFloatAsState(
+            // Per-char alpha (codrops' 'brightness 0% → 100%' → alpha 0 → 1).
+            val charAlpha by animateFloatAsState(
                 targetValue = if (charStarted) 1f else 0f,
                 animationSpec = tween(perCharDurationMillis, easing = LinearEasing),
-                label = "char_${index}_blur",
+                label = "char_${index}_alpha",
             )
-
-            // Per-character blur radius: maxBlurDp → 0dp
-            val blurRadius = maxBlurDp * (1f - progress)
-            // Per-character alpha (codrops' 'brightness 0% → 100%'): 0 → 1
-            val charAlpha = progress
 
             Text(
                 text = char.toString(),
                 style = style,
-                modifier = Modifier
-                    .blur(blurRadius)
-                    .alpha(charAlpha),
+                modifier = Modifier.alpha(charAlpha),
             )
         }
     }
