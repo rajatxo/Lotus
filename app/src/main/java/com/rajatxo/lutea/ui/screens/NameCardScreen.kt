@@ -163,15 +163,11 @@ private fun NameCardContent(
         }
     }
 
-    // Sentence 1's Y offset animates from 100dp DOWN (sentence 2's position) → 0dp (natural position).
-    // CRITICAL: use .offset(y = ...) NOT .padding(bottom = ...) — padding adds space BELOW
-    // the element (pushing siblings down), it does NOT move the element itself down.
-    // offset visually shifts the element without affecting layout, so sentence 1 starts
-    // overlapping sentence 2's position, then moves up to its natural slot.
-    // 100dp matches the gap between sentences (Spacer above sentence 2 = 100dp).
-    // Used tween (not spring) to avoid overshoot past 0dp.
+    // Sentence 1's Y offset animates from 17dp DOWN (sentence 2's position) → 0dp (natural position).
+    // 17dp = exact gap between sentence 1 and sentence 2 (measured from inspiration video:
+    // 50px at 3x density = 17dp). This is what sentence 1 travels through during its move-up.
     val sentence1YOffset: Dp by animateDpAsState(
-        targetValue = if (sentence1MovedUp) 0.dp else 100.dp,  // 100dp = sentence 2's offset below
+        targetValue = if (sentence1MovedUp) 0.dp else 17.dp,
         animationSpec = tween(durationMillis = 600, easing = androidx.compose.animation.core.FastOutSlowInEasing),
         label = "sentence1_y",
     )
@@ -180,38 +176,43 @@ private fun NameCardContent(
         modifier = Modifier
             .fillMaxSize()
             .imePadding(),  // ← shrinks the Box height when keyboard opens.
-        // Using Center (NOT TopCenter) so when imePadding shrinks the available
-        // height, the entire Column shifts UP naturally to stay centered — this is
-        // what makes the logo, sentences, capsule, and button ALL move up together
-        // when the keyboard opens, and move back down when it closes.
-        contentAlignment = Alignment.Center,
+        // Using TopCenter (NOT Center) so content is anchored to the top with explicit
+        // padding. When imePadding shrinks the Box height, the Column stays anchored
+        // to the top, but the Continue button (anchored to BottomCenter) moves up to
+        // sit just above the keyboard.
+        contentAlignment = Alignment.TopCenter,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 80.dp),  // bias content slightly above center for natural look
+                .padding(
+                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 56.dp,
+                    bottom = 200.dp,  // reserve space at bottom for the Continue button
+                ),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // ── 1. Lotus logo — top-center, 120dp ──────────────────────────
+            // ── 1. Lotus logo — top-center, animates from 120dp → 90dp when keyboard opens ──
+            val logoSize by animateDpAsState(
+                targetValue = if (showCapsule) 90.dp else 120.dp,  // shrinks when keyboard opens
+                animationSpec = tween(400),
+                label = "logo_size",
+            )
             Image(
                 painter = painterResource(R.drawable.ic_launcher_foreground),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.size(120.dp),
+                modifier = Modifier.size(logoSize),
             )
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(53.dp))  // 53dp gap between logo and sentence 1
 
             // ── 2. Sentence 1 — "I'll help you find your sound." ───────────
-            // Starts at the LOWER position (sentence 2's spot) via .offset(y = 100.dp).
-            // Once revealed, sentence1MovedUp triggers the animation that moves it UP
-            // to its natural position (.offset animates to 0dp).
-            // 100dp offset matches the natural gap between sentences so when sentence 1
-            // is offset down, it visually overlaps sentence 2's position.
+            // Starts at the LOWER position (sentence 2's spot) via .offset(y = 17dp).
+            // 22sp (smaller than sentence 2's 27sp — matches inspiration video).
             BlurRevealText(
                 text = "I'll help you find your sound.",
                 color = Color.White,
-                fontSize = 24,
+                fontSize = 22,  // was 24, inspiration shows sentence 1 is smaller
                 fontWeight = FontWeight.Normal,
                 letterSpacing = 0f,
                 delayMillis = 200,
@@ -224,14 +225,14 @@ private fun NameCardContent(
             )
 
             // ── 3. Sentence 2 — "First, what's your name?" ─────────────────
-            // Gap between sentence 1 and sentence 2 = 100dp (was 28dp — too small per
-            // user feedback: "the gap between first and second sentence is too low").
-            // This 100dp gap is what sentence 1 travels through during its move-up animation.
-            Spacer(Modifier.height(100.dp))
+            // 17dp gap between sentence 1 and sentence 2 (was 100dp — way too big).
+            // Measured from inspiration: 50px / 3 = 17dp.
+            // 27sp (LARGER than sentence 1 — matches inspiration).
+            Spacer(Modifier.height(17.dp))
             BlurRevealText(
                 text = "First, what's your name?",
                 color = Color.White,
-                fontSize = 20,
+                fontSize = 27,  // was 20, inspiration shows sentence 2 is larger
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0f,
                 delayMillis = 2100,
@@ -240,7 +241,7 @@ private fun NameCardContent(
                 maxBlurDp = 10.dp,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(20.dp))  // 20dp gap between sentence 2 and capsule
 
             // ── 4. Name capsule — slides in AFTER sentence 2 finishes ──────
             AnimatedVisibility(
@@ -261,32 +262,34 @@ private fun NameCardContent(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+        }
 
-            // ── 5. Continue button — appears mid-way through sentence 2 ─────
-            // Positioned BELOW the capsule with a 16dp Spacer, so they NEVER overlap.
-            // Both are in the same Column, so when the capsule slides in, the button
-            // is already in its correct position below it.
-            AnimatedVisibility(
-                visible = showContinueButton,
-                enter = fadeIn(tween(400)) +
-                    slideInVertically(
-                        initialOffsetY = { it / 4 },
-                        animationSpec = tween(400),
-                    ),
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Spacer(Modifier.height(16.dp))
-                    val canContinue = name.isNotBlank()
-                    ContinueButton(
-                        enabled = canContinue,
-                        onClick = { onComplete(name.ifBlank { "Friend" }) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
+        // ── 5. Continue button — anchored to BOTTOM of screen (NOT under capsule) ──
+        // Per inspiration video: gap between capsule bottom and continue button top is
+        // ~293dp — the button is pinned to the bottom of the screen with nav bar padding,
+        // NOT positioned directly below the capsule.
+        AnimatedVisibility(
+            visible = showContinueButton,
+            enter = fadeIn(tween(400)) +
+                slideInVertically(
+                    initialOffsetY = { it / 4 },
+                    animationSpec = tween(400),
+                ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(
+                    bottom = WindowInsets.navigationBars.asPaddingValues()
+                        .calculateBottomPadding() + 24.dp,
+                )
+                .align(Alignment.BottomCenter),
+        ) {
+            val canContinue = name.isNotBlank()
+            ContinueButton(
+                enabled = canContinue,
+                onClick = { onComplete(name.ifBlank { "Friend" }) },
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
