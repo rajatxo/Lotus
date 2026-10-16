@@ -192,8 +192,10 @@ private fun NameCardContent(
     val S1_EXIT_DURATION = 1500
     val S1_EXIT_EASING = androidx.compose.animation.core.LinearOutSlowInEasing
 
+    // S1 vanish offset: starts at 0 (natural position, where the reveal left it),
+    // moves UP to -40dp during the vanish. Gently drifts up like smoke.
     val sentence1YOffset: Dp by animateDpAsState(
-        targetValue = if (sentence1Dismissing) (-40).dp else 17.dp,
+        targetValue = if (sentence1Dismissing) (-40).dp else 0.dp,
         animationSpec = tween(durationMillis = S1_EXIT_DURATION, easing = S1_EXIT_EASING),
         label = "sentence1_y",
     )
@@ -259,35 +261,52 @@ private fun NameCardContent(
                 verticalArrangement = Arrangement.Center,  // ← cluster centered
             ) {
                 // ── Sentence 1 — "I'll help you find your sound." ───────────
-                // Smoke-dissolve exit: S1 moves UP gently while EXPANDING (scale 1→1.3),
-                // characters DRIFT APART (letter-spacing 0→12sp), heavy BLUR (32dp) removes
-                // all shape, and alpha fades to 0. Text becomes smoke and blends into air.
-                BlurRevealText(
-                    text = "I'll help you find your sound.",
-                    color = Color.White,
-                    fontSize = 22,
-                    fontWeight = FontWeight.Normal,
-                    letterSpacing = sentence1LetterSpacing,  // ← animated, chars drift apart
-                    delayMillis = 200,
-                    perCharDurationMillis = 300,
-                    staggerMillis = 30,
-                    maxBlurDp = 10.dp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .offset(y = sentence1YOffset)
-                        .alpha(sentence1Alpha)
-                        .scale(sentence1Scale)  // ← expand outward like smoke
-                        .graphicsLayer {
-                            if (sentence1BlurPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                renderEffect = RenderEffect.createBlurEffect(
-                                    sentence1BlurPx, sentence1BlurPx,
-                                    Shader.TileMode.DECAL,
-                                ).asComposeRenderEffect()
-                            } else {
-                                renderEffect = null
-                            }
-                        },
-                )
+                // Two stacked instances crossfaded:
+                //   A) Reveal instance (reverse=false): chars appear blur→sharp at t=200ms
+                //   B) Vanish instance (reverse=true): chars disappear sharp→blur at t=1500ms
+                //      AND moves UP via offset animation while vanishing.
+                // Same blur mechanic in both directions — the vanish is literally the
+                // reveal played backward, per user request.
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // A) Reveal instance — visible until S1 starts dismissing.
+                    BlurRevealText(
+                        text = "I'll help you find your sound.",
+                        color = Color.White,
+                        fontSize = 22,
+                        fontWeight = FontWeight.Normal,
+                        letterSpacing = 0f,
+                        delayMillis = 200,
+                        perCharDurationMillis = 300,
+                        staggerMillis = 30,
+                        maxBlurDp = 10.dp,
+                        reverse = false,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .alpha(if (sentence1Dismissing) 0f else 1f),
+                    )
+
+                    // B) Vanish instance — same blur effect played backward + moves up.
+                    // delayMillis=1500 so it starts vanishing exactly when S2 starts revealing.
+                    BlurRevealText(
+                        text = "I'll help you find your sound.",
+                        color = Color.White,
+                        fontSize = 22,
+                        fontWeight = FontWeight.Normal,
+                        letterSpacing = 0f,
+                        delayMillis = 1500,
+                        perCharDurationMillis = 400,
+                        staggerMillis = 30,
+                        maxBlurDp = 10.dp,
+                        reverse = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .alpha(if (sentence1Dismissing) 1f else 0f)
+                            .offset(y = sentence1YOffset),
+                    )
+                }
 
                 // ── Sentence 2 — "First, what's your name?" ─────────────────
                 // fontSize reduced from 27 → 24 (per user: 'make the second sentence

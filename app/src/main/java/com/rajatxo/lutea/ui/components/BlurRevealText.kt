@@ -48,45 +48,11 @@ val CalSansFamily = FontFamily(
 /**
  * Per-character blur reveal — port of codrops/ScrollBlurTypography Effect 1.
  *
- * SOURCE: https://github.com/codrops/ScrollBlurTypography/blob/master/js/effect-1/blurScrollEffect.js
+ * Normal mode (reverse=false): chars start blurred+invisible, animate to sharp+visible.
+ * Reverse mode (reverse=true): chars start sharp+visible, animate to blurred+invisible.
+ *   Used for S1's vanish effect — same blur mechanic but played backward.
  *
- * Original codrops:
- *   gsap.fromTo(chars, {
- *       filter: 'blur(10px) brightness(0%)',
- *   }, {
- *       filter: 'blur(0px) brightness(100%)',
- *       stagger: 0.05,
- *   });
- *
- * Previous attempts (v1-v3) used Modifier.blur() per-character Text. That produced
- * a HARD-EDGED BOX BLUR because each char's Text was too small for the blur to fade
- * naturally — the blur got clipped at the character's bounding box.
- *
- * THIS VERSION (v4) uses the proper approach:
- *   - Each character animates ONLY its alpha (0 → 1) and a SMALL scale (0.5 → 1.0).
- *     No per-character Modifier.blur().
- *   - The ENTIRE ROW is wrapped in a single `Modifier.graphicsLayer { renderEffect = ... }`
- *     that applies a Gaussian RenderEffect blur (Android 12+, API 31+).
- *   - The blur radius on the whole row animates from 24dp → 0dp over the total duration.
- *   - As characters appear (alpha 0→1) and the whole row de-blurs together, the effect
- *     looks exactly like the codrops reference: smooth Gaussian blur, soft edges,
- *     wave-like reveal because chars stagger their alpha animations.
- *
- * On Android < 12 (API < 31), RenderEffect is a no-op, so the blur won't apply —
- * characters will just fade in (alpha animation only). Acceptable graceful degrade.
- *
- * Why this fixes the previous problems:
- *   1. Cal Sans font — applied via CalSansFamily
- *   2. Text shifts left — FIXED. Row contains ALL chars from t=0 (alpha=0).
- *   3. Square/hard blur — FIXED. Single RenderEffect on the whole row produces
- *      a proper Gaussian blur with soft edges (Android's native RenderEffect
- *      uses Gaussian, not box blur).
- *
- * @param text           the full text to reveal
- * @param delayMillis    global delay before the animation starts
- * @param perCharDurationMillis  how long each char's alpha animation takes
- * @param staggerMillis  delay between consecutive chars' alpha animations (50ms per codrops)
- * @param maxBlurDp      starting blur radius for the whole row (10dp per codrops)
+ * @param reverse  if true, plays the animation in reverse (vanish instead of reveal)
  */
 @Composable
 fun BlurRevealText(
@@ -102,34 +68,24 @@ fun BlurRevealText(
     letterSpacing: Float = 0f,
     textAlign: TextAlign = TextAlign.Center,
     lineHeight: Int? = null,
+    reverse: Boolean = false,
 ) {
-    var started by remember { mutableStateOf(false) }
-    LaunchedEffect(text) {
+    var started by remember(text, reverse) { mutableStateOf(false) }
+    LaunchedEffect(text, reverse) {
         if (delayMillis > 0) delay(delayMillis.toLong())
         started = true
     }
 
-    // Total animation time = (last char's stagger) + (per-char duration).
     val totalDurationMs = (text.length - 1) * staggerMillis + perCharDurationMillis
 
-    // Whole-row blur progress: 0 (max blur) → 1 (no blur) over totalDurationMs.
-    // Starts at the same time as the first char.
-    var blurStarted by remember(text) { mutableStateOf(false) }
-    LaunchedEffect(text) {
-        if (delayMillis > 0) delay(delayMillis.toLong())
-        blurStarted = true
-    }
+    // Whole-row blur progress.
+    // Normal: 0 (max blur) → 1 (no blur)
+    // Reverse: 1 (no blur) → 0 (max blur)
     val blurProgress by animateFloatAsState(
-        targetValue = if (blurStarted) 1f else 0f,
+        targetValue = if (started) (if (reverse) 0f else 1f) else (if (reverse) 1f else 0f),
         animationSpec = tween(totalDurationMs, easing = LinearEasing),
         label = "row_blur",
     )
-    // Animate blur radius from maxBlurDp → 0dp.
-    // CRITICAL: clamp to >= 0f because animateFloatAsState with tween+LinearEasing
-    // shouldn't overshoot, BUT if the animation spec is ever changed to spring
-    // (which overshoots past 1.0), (1f - blurProgress) would go negative →
-    // RenderEffect.createBlurEffect throws IllegalArgumentException → CRASH.
-    // This coerceAtLeast(0f) is a defensive guard.
     val currentBlurPx = with(LocalDensity.current) {
         (maxBlurDp * (1f - blurProgress)).coerceAtLeast(0.dp).toPx()
     }
@@ -147,19 +103,8 @@ fun BlurRevealText(
         modifier = modifier
             .fillMaxWidth()
             .wrapContentSize(align = Alignment.Center)
-            // Apply a single Gaussian RenderEffect blur to the whole row.
-            // RenderEffect.createBlurEffect uses true Gaussian (not box) blur.
-            // CRITICAL: RenderEffect requires Android 12+ (API 31, Build.VERSION_CODES.S).
-            // Lutea's minSdk is 29 (Android 10). On API 29-30, the android.graphics.RenderEffect
-            // class doesn't exist — referencing it causes NoClassDefFoundError → CRASH.
-            // Guard with Build.VERSION.SDK_INT check so the call is only made on S+.
             .graphicsLayer {
-                // Only apply RenderEffect blur when the animation has actually started
-                // AND there's some blur to apply. This prevents a ghost-text flash on
-                // the very first frame where blurProgress would be 0 (max blur) but no
-                // chars are visible yet — the row's blur would briefly render the
-                // invisible text shape as a smudge.
-                if (blurStarted && currentBlurPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (started && currentBlurPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     renderEffect = RenderEffect.createBlurEffect(
                         currentBlurPx,
                         currentBlurPx,
@@ -174,15 +119,17 @@ fun BlurRevealText(
     ) {
         text.forEachIndexed { index, char ->
             val charStartDelay = delayMillis + index * staggerMillis
-            var charStarted by remember(text, index) { mutableStateOf(false) }
-            LaunchedEffect(text, index) {
+            var charStarted by remember(text, index, reverse) { mutableStateOf(false) }
+            LaunchedEffect(text, index, reverse) {
                 if (charStartDelay > 0) delay(charStartDelay.toLong())
                 charStarted = true
             }
 
-            // Per-char alpha (codrops' 'brightness 0% → 100%' → alpha 0 → 1).
+            // Per-char alpha.
+            // Normal: 0 → 1 (appear)
+            // Reverse: 1 → 0 (vanish)
             val charAlpha by animateFloatAsState(
-                targetValue = if (charStarted) 1f else 0f,
+                targetValue = if (charStarted) (if (reverse) 0f else 1f) else (if (reverse) 1f else 0f),
                 animationSpec = tween(perCharDurationMillis, easing = LinearEasing),
                 label = "char_${index}_alpha",
             )
