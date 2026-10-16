@@ -75,8 +75,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
+import com.kyant.backdrop.effects.vibrancy
 import com.rajatxo.lutea.R
 import com.rajatxo.lutea.ui.components.BlurRevealText
+import com.rajatxo.lutea.ui.foundation.LuteaBackdrop
 import com.rajatxo.lutea.ui.foundation.LuteaBackground
 import kotlinx.coroutines.delay
 
@@ -232,63 +237,62 @@ private fun NameCardContent(
         label = "sentence1_letter_spacing",
     )
 
-    // Outer Box: NOT imePadded. The flower image lives here, anchored to the screen
-    // top, so it stays put when the keyboard opens (per user feedback: flower was
-    // getting cut off at the top when keyboard opened).
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        // ── Layer A: Flower image as FULL BACKGROUND ──────────────────────
-        // New image is 768x1715 (almost 2:5 aspect ratio — much taller than before).
-        // Top half: flower + red colors. Bottom half: pure black (#000000).
-        // Using ContentScale.Crop + fillMaxSize so the image fills the ENTIRE screen
-        // as a background. The bottom black portion is where the text sits.
-        //
-        // Stays put when keyboard opens (it's the background, not content).
-        Image(
-            painter = painterResource(R.drawable.flower_top),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
+    // ── OUTER: LuteaBackdrop wraps the 3-layer kyant structure ──
+    // Layer 1: Flower image (visible background)
+    // Layer 2: Transparent capture layer (NOT clickable, NOT scrollable) — kyant captures here
+    // Layer 3: Foreground content (uses drawBackdrop on individual elements to blur Layer 1)
+    //
+    // Per Coral's SettingsScreen clever approach (avoids the kyant crash):
+    //   layerBackdrop is OUTSIDE the scroll (kyant criteria met).
+    //   Only drawBackdrop is on individual elements (capsule, button).
+    //   Kyant content lives on TOP of everything — it's the last child of LuteaBackdrop.
+    LuteaBackdrop(
+        background = {
+            // Flower image + soft glow — both rendered twice by LuteaBackdrop (visible + captured)
+            Box(modifier = Modifier.fillMaxSize()) {
+                Image(
+                    painter = painterResource(R.drawable.flower_top),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
 
-        // ── Layer A.5: Soft glowing pulse on the flower (loops forever) ──
-        // Breathing radial glow that pulses alpha 0.25 → 0.6 → 0.25 over 3.6s.
-        // Only affects the flower (top half), gives the screen an "alive" feel.
-        // Nothing else moves — text and form stay completely still.
-        val glowTransition = rememberInfiniteTransition(label = "flower_glow")
-        val glowAlpha by glowTransition.animateFloat(
-            initialValue = 0.25f,
-            targetValue = 0.6f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1800, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-            label = "glow_alpha",
-        )
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val glowWidthPx = constraints.maxWidth.toFloat()
-            val glowHeightPx = constraints.maxHeight.toFloat()
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                Color(0xFFFFD89E).copy(alpha = glowAlpha),  // warm cream glow
-                                Color(0xFFFF9A8B).copy(alpha = glowAlpha * 0.5f),  // soft pink edge
-                                Color.Transparent,  // fade out
-                            ),
-                            center = androidx.compose.ui.geometry.Offset(
-                                x = glowWidthPx * 0.5f,  // 50% horizontal
-                                y = glowHeightPx * 0.3f,  // 30% down — over the flower
-                            ),
-                            radius = glowWidthPx * 0.7f,  // wide glow
-                        ),
+                // Soft glowing pulse on the flower (loops forever) — captured by kyant too
+                val glowTransition = rememberInfiniteTransition(label = "flower_glow")
+                val glowAlpha by glowTransition.animateFloat(
+                    initialValue = 0.25f,
+                    targetValue = 0.6f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 1800, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse,
                     ),
-            )
-        }
+                    label = "glow_alpha",
+                )
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val glowWidthPx = constraints.maxWidth.toFloat()
+                    val glowHeightPx = constraints.maxHeight.toFloat()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0xFFFFD89E).copy(alpha = glowAlpha),
+                                        Color(0xFFFF9A8B).copy(alpha = glowAlpha * 0.5f),
+                                        Color.Transparent,
+                                    ),
+                                    center = androidx.compose.ui.geometry.Offset(
+                                        x = glowWidthPx * 0.5f,
+                                        y = glowHeightPx * 0.18f,  // 18% down — higher up
+                                    ),
+                                    radius = glowWidthPx * 0.45f,  // smaller radius
+                                ),
+                            ),
+                    )
+                }
+            }
+        },
+    ) { backdrop ->
 
         // ── Layer B: Content Column — imePadded (NO verticalScroll) ──────────
         // Only the text content shifts up when keyboard opens. The flower stays put.
@@ -390,6 +394,7 @@ private fun NameCardContent(
                         focusRequester = focusRequester,
                         imeAction = ImeAction.Done,
                         onImeAction = { keyboard?.hide() },
+                        backdrop = backdrop,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -409,6 +414,7 @@ private fun NameCardContent(
                     ContinueButton(
                         enabled = canContinue,
                         onClick = { onComplete(name.ifBlank { "Friend" }) },
+                        backdrop = backdrop,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -421,7 +427,7 @@ private fun NameCardContent(
 // Reusable bits
 // ────────────────────────────────────────────────────────────────────────────────────
 
-/** Pill-shaped text input — solid dark fill, 24dp corner radius. */
+/** Pill-shaped text input — kyant frosted glass via drawBackdrop. */
 @Composable
 private fun PillTextField(
     value: String,
@@ -430,13 +436,30 @@ private fun PillTextField(
     focusRequester: FocusRequester,
     imeAction: ImeAction,
     onImeAction: () -> Unit,
+    backdrop: com.kyant.backdrop.backdrops.LayerBackdrop,
     modifier: Modifier = Modifier,
 ) {
+    val shape = RoundedCornerShape(24.dp)
     Box(
         modifier = modifier
             .height(48.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(Color(0xFF1C1C1E)),
+            .clip(shape)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { shape },
+                effects = {
+                    vibrancy()
+                    colorControls(
+                        brightness = 0.05f,
+                        contrast = 1f,
+                        saturation = 1.4f,
+                    )
+                    blur(16f.dp.toPx())
+                },
+                onDrawSurface = {
+                    drawRect(Color.Black.copy(alpha = 0.3f))
+                },
+            ),
         contentAlignment = Alignment.CenterStart,
     ) {
         BasicTextField(
@@ -474,27 +497,45 @@ private fun PillTextField(
     }
 }
 
-/** Full-width pill Continue button.
- *  Disabled = #3A3A3A bg + #8E8E93 text.
- *  Enabled  = pure white bg + black text. */
+/** Full-width pill Continue button — kyant frosted glass via drawBackdrop.
+ *  Disabled = darker tint over the backdrop.
+ *  Enabled  = brighter tint (looks like solid white when name is entered). */
 @Composable
 private fun ContinueButton(
     enabled: Boolean,
     onClick: () -> Unit,
+    backdrop: com.kyant.backdrop.backdrops.LayerBackdrop,
     modifier: Modifier = Modifier,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale = if (pressed && enabled) 0.98f else 1f
-    val bg = if (enabled) Color(0xFFFFFFFF) else Color(0xFF3A3A3A)
+    val overlayAlpha = if (enabled) 0.85f else 0.5f
+    val overlayColor = if (enabled) Color.White else Color(0xFF3A3A3A)
     val fg = if (enabled) Color.Black else Color(0xFF8E8E93)
 
+    val shape = RoundedCornerShape(24.dp)
     Box(
         modifier = modifier
             .height(48.dp)
             .scale(scale)
-            .clip(RoundedCornerShape(24.dp))
-            .background(bg)
+            .clip(shape)
+            .drawBackdrop(
+                backdrop = backdrop,
+                shape = { shape },
+                effects = {
+                    vibrancy()
+                    colorControls(
+                        brightness = if (enabled) 0.4f else 0.05f,
+                        contrast = 1f,
+                        saturation = 1.4f,
+                    )
+                    blur(16f.dp.toPx())
+                },
+                onDrawSurface = {
+                    drawRect(overlayColor.copy(alpha = overlayAlpha))
+                },
+            )
             .clickable(
                 enabled = enabled,
                 interactionSource = interaction,
