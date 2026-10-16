@@ -199,6 +199,17 @@ private fun NameCardContent(
             modifier = Modifier.fillMaxSize(),
         )
 
+        // ── TEMPORARY: horizontal line at CENTER of screen (for alignment reference) ──
+        // Bright red, 1dp tall, full width. Anchored at the exact vertical center.
+        // Remove this once alignment is finalized.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(Color.Red)
+                .align(Alignment.Center),
+        )
+
         // ── Layer B: Content Box — FIXED position (NO imePadding) ─────────────
         // Content cluster stays EXACTLY where it is. Keyboard does NOT move it.
         // The centered cluster is high enough that the keyboard (which takes the bottom
