@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,8 +25,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.rememberScrollState
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -122,6 +125,7 @@ private fun NameCardContent(
     var name by remember { mutableStateOf("") }
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
+    val scrollState = rememberScrollState()  // hoisted so LaunchedEffect can use it
 
     // ── Animation state flags ──────────────────────────────────────────────
     // Sentence 1 starts at LOWER position. Once it finishes revealing, set
@@ -176,25 +180,39 @@ private fun NameCardContent(
         modifier = Modifier
             .fillMaxSize()
             .imePadding(),  // ← shrinks the Box height when keyboard opens.
-        // Using TopCenter (NOT Center) so content is anchored to the top with explicit
-        // padding. When imePadding shrinks the Box height, the Column stays anchored
-        // to the top, but the Continue button (anchored to BottomCenter) moves up to
-        // sit just above the keyboard.
         contentAlignment = Alignment.TopCenter,
     ) {
+        // ── Single scrollable Column containing ALL elements as ONE rigid block ──
+        // Per inspiration video: logo, sentences, capsule, and button all move together
+        // as one unit when keyboard opens/closes. They are NOT independent anchored boxes.
+        //
+        // Using verticalScroll + focusRequester auto-triggers Android's bringIntoView
+        // mechanism: when the capsule gets focused (via focusRequester.requestFocus()),
+        // the scroll automatically brings the capsule into view above the keyboard.
+        // The whole Column shifts up — logo, sentences, capsule, button all move together.
+        //
+        // The Continue button is INSIDE this Column (not anchored separately to BottomCenter)
+        // so it moves with everything else. The large gap between capsule and button is
+        // achieved with a Spacer that fills remaining space via weight(1f).
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight()
+                .verticalScroll(scrollState)
                 .padding(horizontal = 24.dp)
                 .padding(
                     top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 56.dp,
-                    bottom = 200.dp,  // reserve space at bottom for the Continue button
+                    bottom = WindowInsets.navigationBars.asPaddingValues()
+                        .calculateBottomPadding() + 24.dp,
                 ),
             horizontalAlignment = Alignment.CenterHorizontally,
+            // Top→bottom arrangement so content sits naturally at the top, with the
+            // Continue button pushed down toward the bottom via a flexible-weight Spacer.
+            verticalArrangement = Arrangement.Top,
         ) {
-            // ── 1. Lotus logo — top-center, animates from 120dp → 90dp when keyboard opens ──
+            // ── 1. Lotus logo — animates 120dp → 90dp when keyboard opens ──
             val logoSize by animateDpAsState(
-                targetValue = if (showCapsule) 90.dp else 120.dp,  // shrinks when keyboard opens
+                targetValue = if (showCapsule) 90.dp else 120.dp,
                 animationSpec = tween(400),
                 label = "logo_size",
             )
@@ -207,12 +225,10 @@ private fun NameCardContent(
             Spacer(Modifier.height(53.dp))  // 53dp gap between logo and sentence 1
 
             // ── 2. Sentence 1 — "I'll help you find your sound." ───────────
-            // Starts at the LOWER position (sentence 2's spot) via .offset(y = 17dp).
-            // 22sp (smaller than sentence 2's 27sp — matches inspiration video).
             BlurRevealText(
                 text = "I'll help you find your sound.",
                 color = Color.White,
-                fontSize = 22,  // was 24, inspiration shows sentence 1 is smaller
+                fontSize = 22,
                 fontWeight = FontWeight.Normal,
                 letterSpacing = 0f,
                 delayMillis = 200,
@@ -225,14 +241,11 @@ private fun NameCardContent(
             )
 
             // ── 3. Sentence 2 — "First, what's your name?" ─────────────────
-            // 17dp gap between sentence 1 and sentence 2 (was 100dp — way too big).
-            // Measured from inspiration: 50px / 3 = 17dp.
-            // 27sp (LARGER than sentence 1 — matches inspiration).
             Spacer(Modifier.height(17.dp))
             BlurRevealText(
                 text = "First, what's your name?",
                 color = Color.White,
-                fontSize = 27,  // was 20, inspiration shows sentence 2 is larger
+                fontSize = 27,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0f,
                 delayMillis = 2100,
@@ -243,7 +256,7 @@ private fun NameCardContent(
             )
             Spacer(Modifier.height(20.dp))  // 20dp gap between sentence 2 and capsule
 
-            // ── 4. Name capsule — slides in AFTER sentence 2 finishes ──────
+            // ── 4. Name capsule ──────────────────────────────────────────────
             AnimatedVisibility(
                 visible = showCapsule,
                 enter = fadeIn(tween(400)) +
@@ -262,34 +275,33 @@ private fun NameCardContent(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-        }
 
-        // ── 5. Continue button — anchored to BOTTOM of screen (NOT under capsule) ──
-        // Per inspiration video: gap between capsule bottom and continue button top is
-        // ~293dp — the button is pinned to the bottom of the screen with nav bar padding,
-        // NOT positioned directly below the capsule.
-        AnimatedVisibility(
-            visible = showContinueButton,
-            enter = fadeIn(tween(400)) +
-                slideInVertically(
-                    initialOffsetY = { it / 4 },
-                    animationSpec = tween(400),
-                ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(
-                    bottom = WindowInsets.navigationBars.asPaddingValues()
-                        .calculateBottomPadding() + 24.dp,
+            // ── Flexible gap between capsule and Continue button ─────────────
+            // Per inspiration: 293dp gap (button sits at screen bottom, not under capsule).
+            // Using Spacer with weight=1f fills ALL remaining vertical space, pushing the
+            // Continue button to the bottom of the Column. When keyboard opens, imePadding
+            // shrinks the Box height → Column's available height shrinks → weight spacer
+            // shrinks → button moves UP closer to capsule (matches the video where gap
+            // shrinks from 293dp to ~60dp when keyboard opens).
+            Spacer(modifier = Modifier.weight(1f))
+
+            // ── 5. Continue button — at the bottom of the same Column ─────────
+            // Now part of the same scrollable block, moves together with everything else.
+            AnimatedVisibility(
+                visible = showContinueButton,
+                enter = fadeIn(tween(400)) +
+                    slideInVertically(
+                        initialOffsetY = { it / 4 },
+                        animationSpec = tween(400),
+                    ),
+            ) {
+                val canContinue = name.isNotBlank()
+                ContinueButton(
+                    enabled = canContinue,
+                    onClick = { onComplete(name.ifBlank { "Friend" }) },
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                .align(Alignment.BottomCenter),
-        ) {
-            val canContinue = name.isNotBlank()
-            ContinueButton(
-                enabled = canContinue,
-                onClick = { onComplete(name.ifBlank { "Friend" }) },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            }
         }
     }
 }
