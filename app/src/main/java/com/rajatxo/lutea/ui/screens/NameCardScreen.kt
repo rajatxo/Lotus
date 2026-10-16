@@ -145,44 +145,44 @@ private fun NameCardContent(
     var name by remember { mutableStateOf("") }
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
-    val scrollState = rememberScrollState()  // hoisted so LaunchedEffect can use it
 
     // ── Animation state flags ──────────────────────────────────────────────
-    // Sentence 1 starts at LOWER position. Once it finishes revealing, set
-    // sentence1Dismissing = true triggers S1's combined exit animation:
-    // S1 moves UP + blurs out + fades out — ALL CONCURRENTLY (buttery smooth).
     var sentence1Dismissing by remember { mutableStateOf(false) }
-
-    // Continue button appears mid-way through sentence 2's reveal.
     var showContinueButton by remember { mutableStateOf(false) }
-
-    // Name capsule appears AFTER sentence 2 fully reveals.
     var showCapsule by remember { mutableStateOf(false) }
 
+    // ── POST-CONTINUE state ────────────────────────────────────────────────
+    // When user taps Continue: hide capsule + button, show greeting,
+    // dissolve old sentences UP + fade, reveal "Hi, [name]" + next sentence.
+    var greetingShown by remember { mutableStateOf(false) }
+    var oldSentencesDissolving by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
-        // Sentence 1 reveals: 200ms delay + ~1300ms reveal = ~1500ms.
         delay(1500)
-
-        // S1 starts dismissing CONCURRENTLY with S2 starting:
-        // S1 moves up + blurs + fades, all at once. Smooth combined exit.
         sentence1Dismissing = true
-
-        // S2 starts revealing at the same moment.
-        // (S2's BlurRevealText has delayMillis = 1500 below)
         showContinueButton = true
-
-        // S2 reveal: 24 chars * 30ms stagger + 300ms = ~1020ms, finishes ~2520ms.
         delay(1100)
-
-        // Capsule appears after sentence 2 fully reveals.
         showCapsule = true
     }
 
     // After the capsule appears, auto-focus it so the keyboard slides up.
     LaunchedEffect(showCapsule) {
-        if (showCapsule) {
+        if (showCapsule && !greetingShown) {
             delay(300)
             focusRequester.requestFocus()
+        }
+    }
+
+    // ── POST-CONTINUE sequence ─────────────────────────────────────────────
+    // When user taps Continue:
+    //   1. Hide keyboard + capsule + button immediately
+    //   2. Start dissolving old sentences UP + fade to dark grey
+    //   3. After 600ms, show "Hi, [name]" greeting with blur reveal
+    //   4. After greeting reveals, show next sentence "Let's find your sound."
+    LaunchedEffect(greetingShown) {
+        if (greetingShown) {
+            keyboard?.hide()
+            oldSentencesDissolving = true
         }
     }
 
@@ -236,6 +236,29 @@ private fun NameCardContent(
         animationSpec = tween(durationMillis = S1_EXIT_DURATION, easing = S1_EXIT_EASING),
         label = "sentence1_letter_spacing",
     )
+
+    // ── POST-CONTINUE dissolve: old sentences (S1 + S2) move UP + fade ──
+    // When user taps Continue, BOTH remaining sentences dissolve UP together.
+    // They fade from white → dark grey (alpha 0.15) + move up + blur.
+    val POST_CONTINUE_DURATION = 1200
+    val oldSentencesYOffset by animateDpAsState(
+        targetValue = if (oldSentencesDissolving) (-80).dp else 0.dp,
+        animationSpec = tween(durationMillis = POST_CONTINUE_DURATION, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
+        label = "old_sentences_y",
+    )
+    val oldSentencesAlpha by animateFloatAsState(
+        targetValue = if (oldSentencesDissolving) 0.15f else 1f,
+        animationSpec = tween(durationMillis = POST_CONTINUE_DURATION, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
+        label = "old_sentences_alpha",
+    )
+    val oldSentencesBlurProgress by animateFloatAsState(
+        targetValue = if (oldSentencesDissolving) 1f else 0f,
+        animationSpec = tween(durationMillis = POST_CONTINUE_DURATION, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
+        label = "old_sentences_blur",
+    )
+    val oldSentencesBlurPx = with(LocalDensity.current) {
+        (20.dp * oldSentencesBlurProgress).toPx()
+    }
 
     // ── OUTER: LuteaBackdrop wraps the 3-layer kyant structure ──
     // Layer 1: Flower image (visible background)
@@ -310,109 +333,141 @@ private fun NameCardContent(
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,  // ← cluster centered
+                verticalArrangement = Arrangement.Center,
             ) {
-                // ── Sentence 1 — "I'll help you find your sound." ───────────
-                // Two stacked instances crossfaded:
-                //   A) Reveal instance (reverse=false): chars appear blur→sharp at t=200ms
-                //   B) Vanish instance (reverse=true): chars disappear sharp→blur at t=1500ms
-                //      AND moves UP via offset animation while vanishing.
-                // Same blur mechanic in both directions — the vanish is literally the
-                // reveal played backward, per user request.
+                // ── OLD SENTENCES (S1 + S2) — dissolve UP when Continue is tapped ──
+                // Wrap in a Box that applies the dissolve offset + alpha + blur to BOTH.
                 Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset(y = oldSentencesYOffset)
+                        .alpha(oldSentencesAlpha)
+                        .graphicsLayer {
+                            if (oldSentencesBlurPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                renderEffect = RenderEffect.createBlurEffect(
+                                    oldSentencesBlurPx, oldSentencesBlurPx,
+                                    Shader.TileMode.DECAL,
+                                ).asComposeRenderEffect()
+                            }
+                        },
                 ) {
-                    // A) Reveal instance — visible until S1 starts dismissing.
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // ── Sentence 1 — "I'll help you find your sound." ───────
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            BlurRevealText(
+                                text = "I'll help you find your sound.",
+                                color = Color.White,
+                                fontSize = 22,
+                                fontWeight = FontWeight.Normal,
+                                letterSpacing = 0f,
+                                delayMillis = 200,
+                                perCharDurationMillis = 300,
+                                staggerMillis = 30,
+                                maxBlurDp = 10.dp,
+                                reverse = false,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .alpha(if (sentence1Dismissing) 0f else 1f),
+                            )
+                            BlurRevealText(
+                                text = "I'll help you find your sound.",
+                                color = Color.White,
+                                fontSize = 22,
+                                fontWeight = FontWeight.Normal,
+                                letterSpacing = 0f,
+                                delayMillis = 1500,
+                                perCharDurationMillis = 400,
+                                staggerMillis = 30,
+                                maxBlurDp = 10.dp,
+                                reverse = true,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .alpha(if (sentence1Dismissing) 1f else 0f)
+                                    .offset(y = sentence1YOffset),
+                            )
+                        }
+
+                        // ── Sentence 2 — "First, what's your name?" ─────────
+                        Spacer(Modifier.height(17.dp))
+                        BlurRevealText(
+                            text = "First, what's your name?",
+                            color = Color.White,
+                            fontSize = 24,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0f,
+                            delayMillis = 1500,
+                            perCharDurationMillis = 300,
+                            staggerMillis = 30,
+                            maxBlurDp = 10.dp,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+
+                // ── Capsule + Continue button (hidden when greeting is shown) ──
+                if (!greetingShown) {
+                    Spacer(Modifier.height(12.dp))
+                    AnimatedVisibility(
+                        visible = showCapsule,
+                        enter = fadeIn(tween(400)) +
+                            slideInVertically(
+                                initialOffsetY = { it / 4 },
+                                animationSpec = tween(400),
+                            ),
+                    ) {
+                        PillTextField(
+                            value = name,
+                            onValueChange = { name = it.take(40) },
+                            placeholder = "Your name",
+                            focusRequester = focusRequester,
+                            imeAction = ImeAction.Done,
+                            onImeAction = { keyboard?.hide() },
+                            backdrop = backdrop,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    AnimatedVisibility(
+                        visible = showContinueButton,
+                        enter = fadeIn(tween(400)) +
+                            slideInVertically(
+                                initialOffsetY = { it / 4 },
+                                animationSpec = tween(400),
+                            ),
+                    ) {
+                        val canContinue = name.isNotBlank()
+                        ContinueButton(
+                            enabled = canContinue,
+                            onClick = { greetingShown = true },
+                            backdrop = backdrop,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+
+                // ── GREETING — "Hi, [name]" — reveals after Continue is tapped ──
+                // Bright green/cyan color, blur-reveal animation.
+                // Appears where the capsule used to be (center).
+                if (greetingShown) {
+                    Spacer(Modifier.height(24.dp))
                     BlurRevealText(
-                        text = "I'll help you find your sound.",
-                        color = Color.White,
-                        fontSize = 22,
-                        fontWeight = FontWeight.Normal,
+                        text = "Hi, ${name.ifBlank { "Friend" }}",
+                        color = Color(0xFF80E5FF),  // bright cyan-green
+                        fontSize = 27,
+                        fontWeight = FontWeight.SemiBold,
                         letterSpacing = 0f,
-                        delayMillis = 200,
+                        delayMillis = 400,  // waits for old sentences to start dissolving
                         perCharDurationMillis = 300,
                         staggerMillis = 30,
                         maxBlurDp = 10.dp,
-                        reverse = false,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .alpha(if (sentence1Dismissing) 0f else 1f),
-                    )
-
-                    // B) Vanish instance — same blur effect played backward + moves up.
-                    // delayMillis=1500 so it starts vanishing exactly when S2 starts revealing.
-                    BlurRevealText(
-                        text = "I'll help you find your sound.",
-                        color = Color.White,
-                        fontSize = 22,
-                        fontWeight = FontWeight.Normal,
-                        letterSpacing = 0f,
-                        delayMillis = 1500,
-                        perCharDurationMillis = 400,
-                        staggerMillis = 30,
-                        maxBlurDp = 10.dp,
-                        reverse = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .alpha(if (sentence1Dismissing) 1f else 0f)
-                            .offset(y = sentence1YOffset),
-                    )
-                }
-
-                // ── Sentence 2 — "First, what's your name?" ─────────────────
-                Spacer(Modifier.height(17.dp))
-                BlurRevealText(
-                    text = "First, what's your name?",
-                    color = Color.White,
-                    fontSize = 24,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0f,
-                    delayMillis = 1500,
-                    perCharDurationMillis = 300,
-                    staggerMillis = 30,
-                    maxBlurDp = 10.dp,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(12.dp))  // gap between sentence 2 and capsule
-
-                // ── Name capsule — kyant frosted glass ────────────────────────
-                AnimatedVisibility(
-                    visible = showCapsule,
-                    enter = fadeIn(tween(400)) +
-                        slideInVertically(
-                            initialOffsetY = { it / 4 },
-                            animationSpec = tween(400),
-                        ),
-                ) {
-                    PillTextField(
-                        value = name,
-                        onValueChange = { name = it.take(40) },
-                        placeholder = "Your name",
-                        focusRequester = focusRequester,
-                        imeAction = ImeAction.Done,
-                        onImeAction = { keyboard?.hide() },
-                        backdrop = backdrop,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-
-                Spacer(Modifier.height(16.dp))  // tiny gap between capsule and button
-
-                // ── Continue button ──────────────────────────────────────────
-                AnimatedVisibility(
-                    visible = showContinueButton,
-                    enter = fadeIn(tween(400)) +
-                        slideInVertically(
-                            initialOffsetY = { it / 4 },
-                            animationSpec = tween(400),
-                        ),
-                ) {
-                    val canContinue = name.isNotBlank()
-                    ContinueButton(
-                        enabled = canContinue,
-                        onClick = { onComplete(name.ifBlank { "Friend" }) },
-                        backdrop = backdrop,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
