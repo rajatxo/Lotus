@@ -5,8 +5,12 @@ import android.graphics.Shader
 import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -17,6 +21,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -51,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asComposeRenderEffect
@@ -230,27 +236,67 @@ private fun NameCardContent(
         label = "sentence1_letter_spacing",
     )
 
-    // ── OUTER: LuteaBackdrop wraps the 3-layer structure ──
-    // Layer 1: Flower image (visible background)
-    // Layer 2: Transparent capture layer (NOT clickable, NOT scrollable) — kyant captures here
-    // Layer 3: Foreground content (uses drawBackdrop on individual elements to blur Layer 1)
-    //
-    // Per Coral's SettingsScreen pattern (avoids the kyant crash):
-    //   layerBackdrop is OUTSIDE any scrollable container → no crash.
-    //   Only drawBackdrop is on individual elements (capsule, button).
-    LuteaBackdrop(
-        background = {
-            Image(
-                painter = painterResource(R.drawable.flower_top),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
+    // Outer Box: NOT imePadded. The flower image lives here, anchored to the screen
+    // top, so it stays put when the keyboard opens (per user feedback: flower was
+    // getting cut off at the top when keyboard opened).
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        // ── Layer A: Flower image as FULL BACKGROUND ──────────────────────
+        // New image is 768x1715 (almost 2:5 aspect ratio — much taller than before).
+        // Top half: flower + red colors. Bottom half: pure black (#000000).
+        // Using ContentScale.Crop + fillMaxSize so the image fills the ENTIRE screen
+        // as a background. The bottom black portion is where the text sits.
+        //
+        // Stays put when keyboard opens (it's the background, not content).
+        Image(
+            painter = painterResource(R.drawable.flower_top),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        // ── Layer A.5: Soft glowing pulse on the flower (loops forever) ──
+        // Breathing radial glow that pulses alpha 0.25 → 0.6 → 0.25 over 3.6s.
+        // Only affects the flower (top half), gives the screen an "alive" feel.
+        // Nothing else moves — text and form stay completely still.
+        val glowTransition = rememberInfiniteTransition(label = "flower_glow")
+        val glowAlpha by glowTransition.animateFloat(
+            initialValue = 0.25f,
+            targetValue = 0.6f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1800, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "glow_alpha",
+        )
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val glowWidthPx = constraints.maxWidth.toFloat()
+            val glowHeightPx = constraints.maxHeight.toFloat()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color(0xFFFFD89E).copy(alpha = glowAlpha),  // warm cream glow
+                                Color(0xFFFF9A8B).copy(alpha = glowAlpha * 0.5f),  // soft pink edge
+                                Color.Transparent,  // fade out
+                            ),
+                            center = androidx.compose.ui.geometry.Offset(
+                                x = glowWidthPx * 0.5f,  // 50% horizontal
+                                y = glowHeightPx * 0.3f,  // 30% down — over the flower
+                            ),
+                            radius = glowWidthPx * 0.7f,  // wide glow
+                        ),
+                    ),
             )
-        },
-    ) { backdrop ->
-        // ── Layer B: Content Box — FIXED position (NO imePadding) ─────────
-        // Content cluster stays EXACTLY where it is. Keyboard does NOT move it.
-        Box(
+        }
+
+        // ── Layer B: Content Column — imePadded (NO verticalScroll) ──────────
+        // Only the text content shifts up when keyboard opens. The flower stays put.
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 24.dp)
