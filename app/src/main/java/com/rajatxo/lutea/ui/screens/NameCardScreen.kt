@@ -282,8 +282,8 @@ private fun NameCardContent(
                                         Color.Transparent,
                                     ),
                                     center = androidx.compose.ui.geometry.Offset(
-                                        x = glowWidthPx * 0.5f,
-                                        y = glowHeightPx * 0.18f,  // 18% down — higher up
+                                        x = glowWidthPx * 0.52f,  // 52% — very very very little bit right
+                                        y = glowHeightPx * 0.20f,  // 20% down — just a little bit down from 18%
                                     ),
                                     radius = glowWidthPx * 0.45f,  // smaller radius
                                 ),
@@ -294,13 +294,11 @@ private fun NameCardContent(
         },
     ) { backdrop ->
 
-        // ── Layer B: Content Column — imePadded (NO verticalScroll) ──────────
-        // Only the text content shifts up when keyboard opens. The flower stays put.
-        // Wrap in a Box(Center) so the Column cluster is centered on screen.
+        // ── Layer B: Content — STATIC position (NO imePadding) ──────────
+        // Content cluster stays EXACTLY where it is. Keyboard does NOT move it.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .imePadding()
                 .padding(horizontal = 24.dp)
                 .padding(
                     top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
