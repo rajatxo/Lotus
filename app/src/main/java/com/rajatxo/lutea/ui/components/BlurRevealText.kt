@@ -154,7 +154,12 @@ fun BlurRevealText(
             // class doesn't exist — referencing it causes NoClassDefFoundError → CRASH.
             // Guard with Build.VERSION.SDK_INT check so the call is only made on S+.
             .graphicsLayer {
-                if (currentBlurPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // Only apply RenderEffect blur when the animation has actually started
+                // AND there's some blur to apply. This prevents a ghost-text flash on
+                // the very first frame where blurProgress would be 0 (max blur) but no
+                // chars are visible yet — the row's blur would briefly render the
+                // invisible text shape as a smudge.
+                if (blurStarted && currentBlurPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     renderEffect = RenderEffect.createBlurEffect(
                         currentBlurPx,
                         currentBlurPx,

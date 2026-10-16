@@ -177,19 +177,16 @@ private fun NameCardContent(
         label = "sentence1_y",
     )
 
+    // Outer Box: NOT imePadded. The flower image lives here, anchored to the screen
+    // top, so it stays put when the keyboard opens (per user feedback: flower was
+    // getting cut off at the top when keyboard opened).
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .imePadding(),  // ← shrinks the Box height when keyboard opens.
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.TopCenter,
     ) {
-        // ── Layer A: Flower image at the TOP of the screen ──────────────────
-        // Source: drawable/flower_top.jpg (736x1103, JPEG).
-        // Bottom of image fades to pure black (#020001) so it blends invisibly with
-        // the pure-black LuteaBackground. Image is anchored to the TOP, contentScale
-        // = FillWidth so it stretches to full screen width while preserving aspect ratio.
-        // Height is determined by aspect ratio — for 736x1103 image on a 1080-wide screen,
-        // it will render at 1080x1619 (about 2/3 of screen height on a 2412-tall phone).
+        // ── Layer A: Flower image — anchored to TOP, OUTSIDE imePadding ──────
+        // Stays put when keyboard opens. Bottom fades to pure black so it blends
+        // invisibly with the pure-black LuteaBackground.
         Image(
             painter = painterResource(R.drawable.flower_top),
             contentDescription = null,
@@ -199,24 +196,18 @@ private fun NameCardContent(
                 .align(Alignment.TopCenter),
         )
 
-        // ── Layer B: Scrollable Column on top of the flower image ──────────
-        // All elements move together as ONE rigid block when keyboard opens.
-        // verticalScroll + focusRequester auto-triggers Android's bringIntoView
-        // mechanism: when capsule gets focused, scroll brings it into view above keyboard.
-        //
-        // No logo here anymore (per user: 'remove animated locus logo, i don't want
-        // anything there'). The flower image replaces it.
+        // ── Layer B: Content Column — imePadded + scrollable ────────────────
+        // Only the text content shifts up when keyboard opens. The flower stays put.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
+                .imePadding()  // ← only this Column shifts up when keyboard opens
                 .verticalScroll(scrollState)
                 .padding(horizontal = 24.dp)
                 .padding(
                     // Push content DOWN so it starts BELOW the visible flower portion.
-                    // The flower renders ~1619px tall on a 1080-wide screen.
-                    // Status bar inset + 600dp reserves enough space for the flower.
-                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 600.dp,
+                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 360.dp,
                     bottom = WindowInsets.navigationBars.asPaddingValues()
                         .calculateBottomPadding() + 24.dp,
                 ),
