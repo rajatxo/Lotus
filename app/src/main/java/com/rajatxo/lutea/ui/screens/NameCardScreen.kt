@@ -1,9 +1,8 @@
 package com.rajatxo.lutea.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -46,6 +45,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.offset
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -163,15 +163,15 @@ private fun NameCardContent(
         }
     }
 
-    // Sentence 1's bottom padding animates from "sentence 2 position" to "sentence 1 position".
-    // Lower position = more bottom padding (pushes it down).
-    // Upper position = less bottom padding.
-    val sentence1BottomPadding: Dp by animateDpAsState(
+    // Sentence 1's Y offset animates from 80dp DOWN (sentence 2's position) → 0dp (natural position).
+    // CRITICAL: use .offset(y = ...) NOT .padding(bottom = ...) — padding adds space BELOW
+    // the element (pushing siblings down), it does NOT move the element itself down.
+    // offset visually shifts the element without affecting layout, so sentence 1 starts
+    // overlapping sentence 2's position, then moves up to its natural slot.
+    // Used tween (not spring) to avoid overshoot past 0dp.
+    val sentence1YOffset: Dp by animateDpAsState(
         targetValue = if (sentence1MovedUp) 0.dp else 80.dp,  // 80dp ≈ sentence 2's offset below
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium,
-        ),
+        animationSpec = tween(durationMillis = 600, easing = androidx.compose.animation.core.FastOutSlowInEasing),
         label = "sentence1_y",
     )
 
@@ -200,8 +200,9 @@ private fun NameCardContent(
             Spacer(Modifier.height(48.dp))
 
             // ── 2. Sentence 1 — "I'll help you find your sound." ───────────
-            // Starts at the LOWER position (sentence 2's spot). Once revealed,
-            // sentence1MovedUp triggers the spring animation that moves it UP.
+            // Starts at the LOWER position (sentence 2's spot) via .offset(y = 80.dp).
+            // Once revealed, sentence1MovedUp triggers the animation that moves it UP
+            // to its natural position (.offset animates to 0dp).
             BlurRevealText(
                 text = "I'll help you find your sound.",
                 color = Color.White,
@@ -214,7 +215,7 @@ private fun NameCardContent(
                 maxBlurDp = 10.dp,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = sentence1BottomPadding),
+                    .offset(y = sentence1YOffset),
             )
 
             // ── 3. Sentence 2 — "First, what's your name?" ─────────────────

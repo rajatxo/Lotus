@@ -125,8 +125,13 @@ fun BlurRevealText(
         label = "row_blur",
     )
     // Animate blur radius from maxBlurDp → 0dp.
+    // CRITICAL: clamp to >= 0f because animateFloatAsState with tween+LinearEasing
+    // shouldn't overshoot, BUT if the animation spec is ever changed to spring
+    // (which overshoots past 1.0), (1f - blurProgress) would go negative →
+    // RenderEffect.createBlurEffect throws IllegalArgumentException → CRASH.
+    // This coerceAtLeast(0f) is a defensive guard.
     val currentBlurPx = with(LocalDensity.current) {
-        (maxBlurDp * (1f - blurProgress)).toPx()
+        (maxBlurDp * (1f - blurProgress)).coerceAtLeast(0.dp).toPx()
     }
 
     val style = TextStyle(
