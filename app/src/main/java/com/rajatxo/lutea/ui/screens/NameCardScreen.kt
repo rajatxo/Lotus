@@ -140,18 +140,18 @@ private fun NameCardContent(
         delay(1500)  // 200ms delay + ~1300ms reveal
         sentence1MovedUp = true
 
-        // Sentence 2 starts revealing after Sentence 1 finishes moving up.
-        // (sentence 2 has delayMillis set to 2000ms below — gives sentence 1's
-        //  move-up animation ~500ms to complete)
-        delay(2000)  // Sentence 2 reveal: 24 chars * 30ms stagger + 300ms = ~1020ms, finishes ~3020ms
+        // Sentence 2 starts revealing simultaneously with sentence 1 finishing move-up.
+        // Sentence 1 move-up takes ~600ms, so sentence 2 starts at ~2100ms.
+        delay(600)
 
-        // Continue button appears mid-way through sentence 2's reveal.
-        // Sentence 2 starts at 2000ms, mid-way = ~2500ms.
-        // We're already at ~3500ms total elapsed, so trigger immediately.
+        // Continue button appears SIMULTANEOUSLY when sentence 2 starts revealing
+        // (user feedback: "i want simentunesly when the second sentence show")
         showContinueButton = true
 
+        // Sentence 2 reveal: 24 chars * 30ms stagger + 300ms = ~1020ms, finishes ~3120ms
+        delay(1100)
+
         // Capsule appears after sentence 2 fully reveals.
-        delay(200)
         showCapsule = true
     }
 
@@ -163,14 +163,15 @@ private fun NameCardContent(
         }
     }
 
-    // Sentence 1's Y offset animates from 80dp DOWN (sentence 2's position) → 0dp (natural position).
+    // Sentence 1's Y offset animates from 100dp DOWN (sentence 2's position) → 0dp (natural position).
     // CRITICAL: use .offset(y = ...) NOT .padding(bottom = ...) — padding adds space BELOW
     // the element (pushing siblings down), it does NOT move the element itself down.
     // offset visually shifts the element without affecting layout, so sentence 1 starts
     // overlapping sentence 2's position, then moves up to its natural slot.
+    // 100dp matches the gap between sentences (Spacer above sentence 2 = 100dp).
     // Used tween (not spring) to avoid overshoot past 0dp.
     val sentence1YOffset: Dp by animateDpAsState(
-        targetValue = if (sentence1MovedUp) 0.dp else 80.dp,  // 80dp ≈ sentence 2's offset below
+        targetValue = if (sentence1MovedUp) 0.dp else 100.dp,  // 100dp = sentence 2's offset below
         animationSpec = tween(durationMillis = 600, easing = androidx.compose.animation.core.FastOutSlowInEasing),
         label = "sentence1_y",
     )
@@ -178,16 +179,18 @@ private fun NameCardContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .imePadding(),  // ← shifts ENTIRE content (logo + sentences + capsule + button) up as one unit
+            .imePadding(),  // ← shrinks the Box height when keyboard opens.
+        // Using Center (NOT TopCenter) so when imePadding shrinks the available
+        // height, the entire Column shifts UP naturally to stay centered — this is
+        // what makes the logo, sentences, capsule, and button ALL move up together
+        // when the keyboard opens, and move back down when it closes.
+        contentAlignment = Alignment.Center,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(
-                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 56.dp,
-                )
-                .align(Alignment.TopCenter),
+                .padding(bottom = 80.dp),  // bias content slightly above center for natural look
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             // ── 1. Lotus logo — top-center, 120dp ──────────────────────────
@@ -200,9 +203,11 @@ private fun NameCardContent(
             Spacer(Modifier.height(48.dp))
 
             // ── 2. Sentence 1 — "I'll help you find your sound." ───────────
-            // Starts at the LOWER position (sentence 2's spot) via .offset(y = 80.dp).
+            // Starts at the LOWER position (sentence 2's spot) via .offset(y = 100.dp).
             // Once revealed, sentence1MovedUp triggers the animation that moves it UP
             // to its natural position (.offset animates to 0dp).
+            // 100dp offset matches the natural gap between sentences so when sentence 1
+            // is offset down, it visually overlaps sentence 2's position.
             BlurRevealText(
                 text = "I'll help you find your sound.",
                 color = Color.White,
@@ -219,15 +224,17 @@ private fun NameCardContent(
             )
 
             // ── 3. Sentence 2 — "First, what's your name?" ─────────────────
-            // Reveals in the lower position AFTER sentence 1 has moved up.
-            // delayMillis = 2000ms (sentence 1 reveal 200+1300=1500, move-up ~500ms = 2000ms)
+            // Gap between sentence 1 and sentence 2 = 100dp (was 28dp — too small per
+            // user feedback: "the gap between first and second sentence is too low").
+            // This 100dp gap is what sentence 1 travels through during its move-up animation.
+            Spacer(Modifier.height(100.dp))
             BlurRevealText(
                 text = "First, what's your name?",
                 color = Color.White,
                 fontSize = 20,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0f,
-                delayMillis = 2000,
+                delayMillis = 2100,
                 perCharDurationMillis = 300,
                 staggerMillis = 30,
                 maxBlurDp = 10.dp,
