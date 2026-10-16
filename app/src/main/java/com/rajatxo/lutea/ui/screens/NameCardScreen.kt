@@ -8,6 +8,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -74,13 +75,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.colorControls
-import com.kyant.backdrop.effects.vibrancy
 import com.rajatxo.lutea.R
 import com.rajatxo.lutea.ui.components.BlurRevealText
-import com.rajatxo.lutea.ui.foundation.LuteaBackdrop
 import com.rajatxo.lutea.ui.foundation.LuteaBackground
 import kotlinx.coroutines.delay
 
@@ -296,16 +292,18 @@ private fun NameCardContent(
 
         // ── Layer B: Content Column — imePadded (NO verticalScroll) ──────────
         // Only the text content shifts up when keyboard opens. The flower stays put.
-        Column(
+        // Wrap in a Box(Center) so the Column cluster is centered on screen.
+        Box(
             modifier = Modifier
                 .fillMaxSize()
+                .imePadding()
                 .padding(horizontal = 24.dp)
                 .padding(
                     top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
                     bottom = WindowInsets.navigationBars.asPaddingValues()
                         .calculateBottomPadding() + 24.dp,
                 ),
-            contentAlignment = Alignment.Center,  // ← center the cluster, FIXED
+            contentAlignment = Alignment.Center,  // ← center the cluster
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -392,14 +390,13 @@ private fun NameCardContent(
                         focusRequester = focusRequester,
                         imeAction = ImeAction.Done,
                         onImeAction = { keyboard?.hide() },
-                        backdrop = backdrop,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
 
                 Spacer(Modifier.height(16.dp))  // tiny gap between capsule and button
 
-                // ── Continue button — kyant frosted glass ────────────────────
+                // ── Continue button ──────────────────────────────────────────
                 AnimatedVisibility(
                     visible = showContinueButton,
                     enter = fadeIn(tween(400)) +
@@ -412,7 +409,6 @@ private fun NameCardContent(
                     ContinueButton(
                         enabled = canContinue,
                         onClick = { onComplete(name.ifBlank { "Friend" }) },
-                        backdrop = backdrop,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -425,7 +421,7 @@ private fun NameCardContent(
 // Reusable bits
 // ────────────────────────────────────────────────────────────────────────────────────
 
-/** Pill-shaped text input — kyant frosted glass via drawBackdrop. */
+/** Pill-shaped text input — solid dark fill, 24dp corner radius. */
 @Composable
 private fun PillTextField(
     value: String,
@@ -434,30 +430,13 @@ private fun PillTextField(
     focusRequester: FocusRequester,
     imeAction: ImeAction,
     onImeAction: () -> Unit,
-    backdrop: com.kyant.backdrop.backdrops.LayerBackdrop,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(24.dp)
     Box(
         modifier = modifier
             .height(48.dp)
-            .clip(shape)
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { shape },
-                effects = {
-                    vibrancy()
-                    colorControls(
-                        brightness = 0.05f,
-                        contrast = 1f,
-                        saturation = 1.4f,
-                    )
-                    blur(16f.dp.toPx())
-                },
-                onDrawSurface = {
-                    drawRect(Color.Black.copy(alpha = 0.3f))
-                },
-            ),
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color(0xFF1C1C1E)),
         contentAlignment = Alignment.CenterStart,
     ) {
         BasicTextField(
@@ -495,47 +474,27 @@ private fun PillTextField(
     }
 }
 
-/** Full-width pill Continue button — kyant frosted glass via drawBackdrop.
- *  Disabled = darker tint.
- *  Enabled  = brighter tint (looks like solid white when name is entered). */
+/** Full-width pill Continue button.
+ *  Disabled = #3A3A3A bg + #8E8E93 text.
+ *  Enabled  = pure white bg + black text. */
 @Composable
 private fun ContinueButton(
     enabled: Boolean,
     onClick: () -> Unit,
-    backdrop: com.kyant.backdrop.backdrops.LayerBackdrop,
     modifier: Modifier = Modifier,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale = if (pressed && enabled) 0.98f else 1f
-    // When disabled: dark tint over the backdrop (looks gray).
-    // When enabled: light tint over the backdrop (looks bright white).
-    val overlayAlpha = if (enabled) 0.85f else 0.5f
-    val overlayColor = if (enabled) Color.White else Color(0xFF3A3A3A)
+    val bg = if (enabled) Color(0xFFFFFFFF) else Color(0xFF3A3A3A)
     val fg = if (enabled) Color.Black else Color(0xFF8E8E93)
 
-    val shape = RoundedCornerShape(24.dp)
     Box(
         modifier = modifier
             .height(48.dp)
             .scale(scale)
-            .clip(shape)
-            .drawBackdrop(
-                backdrop = backdrop,
-                shape = { shape },
-                effects = {
-                    vibrancy()
-                    colorControls(
-                        brightness = if (enabled) 0.4f else 0.05f,
-                        contrast = 1f,
-                        saturation = 1.4f,
-                    )
-                    blur(16f.dp.toPx())
-                },
-                onDrawSurface = {
-                    drawRect(overlayColor.copy(alpha = overlayAlpha))
-                },
-            )
+            .clip(RoundedCornerShape(24.dp))
+            .background(bg)
             .clickable(
                 enabled = enabled,
                 interactionSource = interaction,
