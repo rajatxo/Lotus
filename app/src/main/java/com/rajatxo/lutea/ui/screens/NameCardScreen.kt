@@ -175,20 +175,25 @@ private fun NameCardContent(
         }
     }
 
-    // ── S1's combined exit animation — move up + blur + fade ALL CONCURRENTLY ──
-    // All three animations start at the same instant (when sentence1Dismissing = true)
-    // and use the SAME duration (1200ms) + SAME easing (LinearOutSlowInEasing) for
-    // buttery-smooth synchronized motion. S1 moves UP while blurring and fading out.
+    // ── S1's smoke-dissolve exit — blend into air and vanish ──
+    // Per user: 'when it move it just dissolve..mean its blur spread away and expand..
+    // just like a smoke blend into air..like it dissolve..blend and vanish and so smoothly'
     //
-    // LinearOutSlowInEasing: starts fast, slows down at the end — gives a "settle"
-    // feel that's smoother than FastOutSlowInEasing for exit animations.
-    val S1_EXIT_DURATION = 1200
+    // Mechanics (all CONCURRENT, perfectly synchronized):
+    //   1. Y offset: 17dp (overlap S2) → -40dp (moves UP gently, not too far — smoke drifts)
+    //   2. Scale: 1.0 → 1.3 (text EXPANDS outward in all directions like smoke spreading)
+    //   3. Letter-spacing: 0 → 12sp (characters DRIFT APART as they dissolve)
+    //   4. Blur: 0 → 32dp (heavy blur so the text loses all shape — becomes smoke)
+    //   5. Alpha: 1 → 0 (fades to invisible as it spreads)
+    //
+    // All animations use the SAME 1500ms duration + LinearOutSlowInEasing for perfect sync.
+    // LinearOutSlowInEasing: starts fast (smoke initial puff), slows to settle (gentle fade).
+    // 1500ms is slow enough to feel like smoke, not a snap.
+    val S1_EXIT_DURATION = 1500
     val S1_EXIT_EASING = androidx.compose.animation.core.LinearOutSlowInEasing
 
-    // S1 starts at offset 17dp DOWN (overlaps S2's natural position). On dismiss,
-    // animates to -60dp = moves UP by ~77dp total. The upward motion.
     val sentence1YOffset: Dp by animateDpAsState(
-        targetValue = if (sentence1Dismissing) (-60).dp else 17.dp,
+        targetValue = if (sentence1Dismissing) (-40).dp else 17.dp,
         animationSpec = tween(durationMillis = S1_EXIT_DURATION, easing = S1_EXIT_EASING),
         label = "sentence1_y",
     )
@@ -202,9 +207,22 @@ private fun NameCardContent(
         animationSpec = tween(durationMillis = S1_EXIT_DURATION, easing = S1_EXIT_EASING),
         label = "sentence1_blur_progress",
     )
+    // Heavy blur (32dp max) so text loses all shape and becomes pure smoke.
     val sentence1BlurPx = with(LocalDensity.current) {
-        (24.dp * sentence1BlurProgress).toPx()  // 24dp max blur for extra smoothness
+        (32.dp * sentence1BlurProgress).toPx()
     }
+    // Scale up so the text expands outward (smoke spreading).
+    val sentence1Scale by animateFloatAsState(
+        targetValue = if (sentence1Dismissing) 1.3f else 1f,
+        animationSpec = tween(durationMillis = S1_EXIT_DURATION, easing = S1_EXIT_EASING),
+        label = "sentence1_scale",
+    )
+    // Letter-spacing grows so characters drift apart as they dissolve.
+    val sentence1LetterSpacing by animateFloatAsState(
+        targetValue = if (sentence1Dismissing) 12f else 0f,
+        animationSpec = tween(durationMillis = S1_EXIT_DURATION, easing = S1_EXIT_EASING),
+        label = "sentence1_letter_spacing",
+    )
 
     // ── OUTER Box: NOT imePadded. Background image lives here, completely fixed. ──
     // The flower Image fills the ENTIRE screen and NEVER moves when keyboard opens.
@@ -241,16 +259,15 @@ private fun NameCardContent(
                 verticalArrangement = Arrangement.Center,  // ← cluster centered
             ) {
                 // ── Sentence 1 — "I'll help you find your sound." ───────────
-                // S1's exit animations (offset, alpha, blur) are declared above and driven
-                // by `sentence1Dismissing`. All three start CONCURRENTLY when S2 begins
-                // revealing — S1 moves UP while blurring and fading out. Buttery smooth
-                // via LinearOutSlowInEasing + 1200ms duration.
+                // Smoke-dissolve exit: S1 moves UP gently while EXPANDING (scale 1→1.3),
+                // characters DRIFT APART (letter-spacing 0→12sp), heavy BLUR (32dp) removes
+                // all shape, and alpha fades to 0. Text becomes smoke and blends into air.
                 BlurRevealText(
                     text = "I'll help you find your sound.",
                     color = Color.White,
                     fontSize = 22,
                     fontWeight = FontWeight.Normal,
-                    letterSpacing = 0f,
+                    letterSpacing = sentence1LetterSpacing,  // ← animated, chars drift apart
                     delayMillis = 200,
                     perCharDurationMillis = 300,
                     staggerMillis = 30,
@@ -259,6 +276,7 @@ private fun NameCardContent(
                         .fillMaxWidth()
                         .offset(y = sentence1YOffset)
                         .alpha(sentence1Alpha)
+                        .scale(sentence1Scale)  // ← expand outward like smoke
                         .graphicsLayer {
                             if (sentence1BlurPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                 renderEffect = RenderEffect.createBlurEffect(
