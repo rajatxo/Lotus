@@ -375,7 +375,7 @@ private fun ContinueButton(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale = if (pressed && enabled) 0.98f else 1f
-    val bg = if (enabled) Color(0xFFD4A03A) else Color(0xFF2C2C2E)
+    val bg = if (enabled) Color(0xFFFFFFFF) else Color(0xFF3A3A3A)
     val fg = if (enabled) Color.Black else Color(0xFF8E8E93)
 
     Box(
