@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rajatxo.lutea.R
+import com.rajatxo.lutea.ui.components.AnimatedLuteaLogo
 import com.rajatxo.lutea.ui.components.BlurRevealText
 import com.rajatxo.lutea.ui.foundation.LuteaBackground
 import kotlinx.coroutines.delay
@@ -210,17 +211,15 @@ private fun NameCardContent(
             // Continue button pushed down toward the bottom via a flexible-weight Spacer.
             verticalArrangement = Arrangement.Top,
         ) {
-            // ── 1. Lotus logo — animates 120dp → 90dp when keyboard opens ──
+            // ── 1. Lotus logo — Lottie animation plays ONE TIME, then holds final frame ──
+            // Logo size still animates 120dp → 90dp when keyboard opens (matches inspiration).
             val logoSize by animateDpAsState(
                 targetValue = if (showCapsule) 90.dp else 120.dp,
                 animationSpec = tween(400),
                 label = "logo_size",
             )
-            Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.size(logoSize),
+            AnimatedLuteaLogo(
+                sizeDp = logoSize,
             )
             Spacer(Modifier.height(53.dp))  // 53dp gap between logo and sentence 1
 

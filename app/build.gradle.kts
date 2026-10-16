@@ -92,4 +92,7 @@ dependencies {
 
     // ★ Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+
+    // ★ Lottie — animated logo
+    implementation("com.airbnb.android:lottie-compose:6.6.2")
 }
