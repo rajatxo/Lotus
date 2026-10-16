@@ -138,13 +138,9 @@ private fun NameCardContent(
 
     // ── Animation state flags ──────────────────────────────────────────────
     // Sentence 1 starts at LOWER position. Once it finishes revealing, set
-    // sentence1MovedUp = true → triggers animateDpAsState to move it UP.
-    var sentence1MovedUp by remember { mutableStateOf(false) }
-
-    // When sentence 2 starts revealing, sentence 1 dims to 50% opacity
-    // (per user: 'when the second line show up, the first line get little bit
-    // dimmed so that the second line feel bright and main').
-    var sentence1Dimmed by remember { mutableStateOf(false) }
+    // sentence1Dismissing = true triggers S1's combined exit animation:
+    // S1 moves UP + blurs out + fades out — ALL CONCURRENTLY (buttery smooth).
+    var sentence1Dismissing by remember { mutableStateOf(false) }
 
     // Continue button appears mid-way through sentence 2's reveal.
     var showContinueButton by remember { mutableStateOf(false) }
@@ -153,22 +149,18 @@ private fun NameCardContent(
     var showCapsule by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        // Sentence 1 starts revealing at 200ms, finishes at ~1430ms.
-        // Wait for it to finish, then trigger the move-up animation.
-        delay(1500)  // 200ms delay + ~1300ms reveal
-        sentence1MovedUp = true
+        // Sentence 1 reveals: 200ms delay + ~1300ms reveal = ~1500ms.
+        delay(1500)
 
-        // Sentence 2 starts revealing simultaneously with sentence 1 finishing move-up.
-        // Sentence 1 move-up takes ~600ms, so sentence 2 starts at ~2100ms.
-        delay(600)
+        // S1 starts dismissing CONCURRENTLY with S2 starting:
+        // S1 moves up + blurs + fades, all at once. Smooth combined exit.
+        sentence1Dismissing = true
 
-        // Sentence 1 dims when sentence 2 begins revealing.
-        sentence1Dimmed = true
-
-        // Continue button appears SIMULTANEOUSLY when sentence 2 starts revealing
+        // S2 starts revealing at the same moment.
+        // (S2's BlurRevealText has delayMillis = 1500 below)
         showContinueButton = true
 
-        // Sentence 2 reveal: 24 chars * 30ms stagger + 300ms = ~1020ms, finishes ~3120ms
+        // S2 reveal: 24 chars * 30ms stagger + 300ms = ~1020ms, finishes ~2520ms.
         delay(1100)
 
         // Capsule appears after sentence 2 fully reveals.
@@ -183,14 +175,36 @@ private fun NameCardContent(
         }
     }
 
-    // Sentence 1's Y offset animates from 17dp DOWN (sentence 2's position) → 0dp (natural position).
-    // 17dp = exact gap between sentence 1 and sentence 2 (measured from inspiration video:
-    // 50px at 3x density = 17dp). This is what sentence 1 travels through during its move-up.
+    // ── S1's combined exit animation — move up + blur + fade ALL CONCURRENTLY ──
+    // All three animations start at the same instant (when sentence1Dismissing = true)
+    // and use the SAME duration (1200ms) + SAME easing (LinearOutSlowInEasing) for
+    // buttery-smooth synchronized motion. S1 moves UP while blurring and fading out.
+    //
+    // LinearOutSlowInEasing: starts fast, slows down at the end — gives a "settle"
+    // feel that's smoother than FastOutSlowInEasing for exit animations.
+    val S1_EXIT_DURATION = 1200
+    val S1_EXIT_EASING = androidx.compose.animation.core.LinearOutSlowInEasing
+
+    // S1 starts at offset 17dp DOWN (overlaps S2's natural position). On dismiss,
+    // animates to -60dp = moves UP by ~77dp total. The upward motion.
     val sentence1YOffset: Dp by animateDpAsState(
-        targetValue = if (sentence1MovedUp) 0.dp else 17.dp,
-        animationSpec = tween(durationMillis = 600, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        targetValue = if (sentence1Dismissing) (-60).dp else 17.dp,
+        animationSpec = tween(durationMillis = S1_EXIT_DURATION, easing = S1_EXIT_EASING),
         label = "sentence1_y",
     )
+    val sentence1Alpha by animateFloatAsState(
+        targetValue = if (sentence1Dismissing) 0f else 1f,
+        animationSpec = tween(durationMillis = S1_EXIT_DURATION, easing = S1_EXIT_EASING),
+        label = "sentence1_alpha",
+    )
+    val sentence1BlurProgress by animateFloatAsState(
+        targetValue = if (sentence1Dismissing) 1f else 0f,
+        animationSpec = tween(durationMillis = S1_EXIT_DURATION, easing = S1_EXIT_EASING),
+        label = "sentence1_blur_progress",
+    )
+    val sentence1BlurPx = with(LocalDensity.current) {
+        (24.dp * sentence1BlurProgress).toPx()  // 24dp max blur for extra smoothness
+    }
 
     // ── OUTER Box: NOT imePadded. Background image lives here, completely fixed. ──
     // The flower Image fills the ENTIRE screen and NEVER moves when keyboard opens.
@@ -227,24 +241,10 @@ private fun NameCardContent(
                 verticalArrangement = Arrangement.Center,  // ← cluster centered
             ) {
                 // ── Sentence 1 — "I'll help you find your sound." ───────────
-                // When S2 shows, S1 completely disappears with a smooth Gaussian blur
-                // fade-out (NOT dim color, NOT square Modifier.blur). Uses RenderEffect
-                // via graphicsLayer — Android's native Gaussian blur (same algorithm as
-                // CSS filter:blur in browsers). Animated: alpha 1→0 + blur 0→20dp over
-                // 800ms for a smooth fade-out.
-                val sentence1Alpha by animateFloatAsState(
-                    targetValue = if (sentence1Dimmed) 0f else 1f,
-                    animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
-                    label = "sentence1_alpha",
-                )
-                val sentence1BlurProgress by animateFloatAsState(
-                    targetValue = if (sentence1Dimmed) 1f else 0f,
-                    animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
-                    label = "sentence1_blur_progress",
-                )
-                val sentence1BlurPx = with(LocalDensity.current) {
-                    (20.dp * sentence1BlurProgress).toPx()
-                }
+                // S1's exit animations (offset, alpha, blur) are declared above and driven
+                // by `sentence1Dismissing`. All three start CONCURRENTLY when S2 begins
+                // revealing — S1 moves UP while blurring and fading out. Buttery smooth
+                // via LinearOutSlowInEasing + 1200ms duration.
                 BlurRevealText(
                     text = "I'll help you find your sound.",
                     color = Color.White,
@@ -272,20 +272,23 @@ private fun NameCardContent(
                 )
 
                 // ── Sentence 2 — "First, what's your name?" ─────────────────
+                // fontSize reduced from 27 → 24 (per user: 'make the second sentence
+                // text size little bit smaller'). delayMillis = 1500 to match the new
+                // S1-dismiss timing (S1 starts dismissing at 1500ms, S2 reveals at same time).
                 Spacer(Modifier.height(17.dp))
                 BlurRevealText(
                     text = "First, what's your name?",
                     color = Color.White,
-                    fontSize = 27,
+                    fontSize = 24,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 0f,
-                    delayMillis = 2100,
+                    delayMillis = 1500,
                     perCharDurationMillis = 300,
                     staggerMillis = 30,
                     maxBlurDp = 10.dp,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(Modifier.height(12.dp))  // gap between sentence 2 and capsule (was 20dp, reduced per user)
+                Spacer(Modifier.height(12.dp))  // gap between sentence 2 and capsule
 
                 // ── Name capsule ──────────────────────────────────────────────
                 AnimatedVisibility(
@@ -347,8 +350,8 @@ private fun PillTextField(
 ) {
     Box(
         modifier = modifier
-            .height(56.dp)
-            .clip(RoundedCornerShape(28.dp))
+            .height(48.dp)
+            .clip(RoundedCornerShape(24.dp))
             .background(Color(0xFF1C1C1E)),
         contentAlignment = Alignment.CenterStart,
     ) {
@@ -404,9 +407,9 @@ private fun ContinueButton(
 
     Box(
         modifier = modifier
-            .height(56.dp)
+            .height(48.dp)
             .scale(scale)
-            .clip(RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(24.dp))
             .background(bg)
             .clickable(
                 enabled = enabled,
