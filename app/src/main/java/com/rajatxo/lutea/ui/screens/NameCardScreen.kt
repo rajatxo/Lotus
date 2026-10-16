@@ -199,20 +199,20 @@ private fun NameCardContent(
             modifier = Modifier.fillMaxSize(),
         )
 
-        // ── Layer B: Content Box — imePadded, centered cluster ──────────────
-        // Only this Box shifts when keyboard opens (via imePadding).
-        // Content (S1, S2, capsule, button) is CENTERED within this Box.
+        // ── Layer B: Content Box — FIXED position (NO imePadding) ─────────────
+        // Content cluster stays EXACTLY where it is. Keyboard does NOT move it.
+        // The centered cluster is high enough that the keyboard (which takes the bottom
+        // ~40% of screen) doesn't cover the capsule — user can still see what they type.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .imePadding()
                 .padding(horizontal = 24.dp)
                 .padding(
                     top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
                     bottom = WindowInsets.navigationBars.asPaddingValues()
                         .calculateBottomPadding() + 24.dp,
                 ),
-            contentAlignment = Alignment.Center,  // ← center the cluster
+            contentAlignment = Alignment.Center,  // ← center the cluster, FIXED
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
