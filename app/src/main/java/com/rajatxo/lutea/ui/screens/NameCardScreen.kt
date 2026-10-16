@@ -1,9 +1,12 @@
 package com.rajatxo.lutea.ui.screens
 
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -43,13 +46,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -199,17 +206,6 @@ private fun NameCardContent(
             modifier = Modifier.fillMaxSize(),
         )
 
-        // ── TEMPORARY: horizontal line at CENTER of screen (for alignment reference) ──
-        // Bright red, 1dp tall, full width. Anchored at the exact vertical center.
-        // Remove this once alignment is finalized.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(Color.Red)
-                .align(Alignment.Center),
-        )
-
         // ── Layer B: Content Box — FIXED position (NO imePadding) ─────────────
         // Content cluster stays EXACTLY where it is. Keyboard does NOT move it.
         // The centered cluster is high enough that the keyboard (which takes the bottom
@@ -231,14 +227,27 @@ private fun NameCardContent(
                 verticalArrangement = Arrangement.Center,  // ← cluster centered
             ) {
                 // ── Sentence 1 — "I'll help you find your sound." ───────────
-                val sentence1Color by animateColorAsState(
-                    targetValue = if (sentence1Dimmed) Color(0x80FFFFFF) else Color.White,
-                    animationSpec = tween(durationMillis = 600),
-                    label = "sentence1_color",
+                // When S2 shows, S1 completely disappears with a smooth Gaussian blur
+                // fade-out (NOT dim color, NOT square Modifier.blur). Uses RenderEffect
+                // via graphicsLayer — Android's native Gaussian blur (same algorithm as
+                // CSS filter:blur in browsers). Animated: alpha 1→0 + blur 0→20dp over
+                // 800ms for a smooth fade-out.
+                val sentence1Alpha by animateFloatAsState(
+                    targetValue = if (sentence1Dimmed) 0f else 1f,
+                    animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+                    label = "sentence1_alpha",
                 )
+                val sentence1BlurProgress by animateFloatAsState(
+                    targetValue = if (sentence1Dimmed) 1f else 0f,
+                    animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+                    label = "sentence1_blur_progress",
+                )
+                val sentence1BlurPx = with(LocalDensity.current) {
+                    (20.dp * sentence1BlurProgress).toPx()
+                }
                 BlurRevealText(
                     text = "I'll help you find your sound.",
-                    color = sentence1Color,
+                    color = Color.White,
                     fontSize = 22,
                     fontWeight = FontWeight.Normal,
                     letterSpacing = 0f,
@@ -248,7 +257,18 @@ private fun NameCardContent(
                     maxBlurDp = 10.dp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .offset(y = sentence1YOffset),
+                        .offset(y = sentence1YOffset)
+                        .alpha(sentence1Alpha)
+                        .graphicsLayer {
+                            if (sentence1BlurPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                renderEffect = RenderEffect.createBlurEffect(
+                                    sentence1BlurPx, sentence1BlurPx,
+                                    Shader.TileMode.DECAL,
+                                ).asComposeRenderEffect()
+                            } else {
+                                renderEffect = null
+                            }
+                        },
                 )
 
                 // ── Sentence 2 — "First, what's your name?" ─────────────────
@@ -265,7 +285,7 @@ private fun NameCardContent(
                     maxBlurDp = 10.dp,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(Modifier.height(20.dp))  // 20dp gap between sentence 2 and capsule
+                Spacer(Modifier.height(12.dp))  // gap between sentence 2 and capsule (was 20dp, reduced per user)
 
                 // ── Name capsule ──────────────────────────────────────────────
                 AnimatedVisibility(
