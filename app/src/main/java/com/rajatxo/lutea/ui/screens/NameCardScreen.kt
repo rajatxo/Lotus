@@ -69,6 +69,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
+import com.kyant.backdrop.effects.vibrancy
 import com.rajatxo.lutea.R
 import com.rajatxo.lutea.ui.components.BlurRevealText
 import com.rajatxo.lutea.ui.foundation.LuteaBackdrop
@@ -397,13 +400,13 @@ private fun PillTextField(
                 backdrop = backdrop,
                 shape = { shape },
                 effects = {
-                    com.kyant.backdrop.effects.vibrancy()
-                    com.kyant.backdrop.effects.colorControls(
+                    vibrancy()
+                    colorControls(
                         brightness = 0.05f,
                         contrast = 1f,
                         saturation = 1.4f,
                     )
-                    com.kyant.backdrop.effects.blur(16f.dp.toPx())
+                    blur(16f.dp.toPx())
                 },
                 onDrawSurface = {
                     drawRect(Color.Black.copy(alpha = 0.3f))
@@ -475,13 +478,13 @@ private fun ContinueButton(
                 backdrop = backdrop,
                 shape = { shape },
                 effects = {
-                    com.kyant.backdrop.effects.vibrancy()
-                    com.kyant.backdrop.effects.colorControls(
+                    vibrancy()
+                    colorControls(
                         brightness = if (enabled) 0.4f else 0.05f,
                         contrast = 1f,
                         saturation = 1.4f,
                     )
-                    com.kyant.backdrop.effects.blur(16f.dp.toPx())
+                    blur(16f.dp.toPx())
                 },
                 onDrawSurface = {
                     drawRect(overlayColor.copy(alpha = overlayAlpha))
