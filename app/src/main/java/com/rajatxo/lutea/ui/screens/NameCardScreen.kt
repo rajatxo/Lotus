@@ -212,16 +212,12 @@ private fun NameCardContent(
             verticalArrangement = Arrangement.Top,
         ) {
             // ── 1. Lotus logo — Lottie animation plays ONE TIME, then holds final frame ──
-            // Logo size still animates 120dp → 90dp when keyboard opens (matches inspiration).
-            val logoSize by animateDpAsState(
-                targetValue = if (showCapsule) 90.dp else 120.dp,
-                animationSpec = tween(400),
-                label = "logo_size",
-            )
+            // Fixed size (160dp) — no shrink animation when keyboard opens (per user:
+            // 'why are you making the logo small? don't mess with logo..just increase the size').
             AnimatedLuteaLogo(
-                sizeDp = logoSize,
+                sizeDp = 160.dp,
             )
-            Spacer(Modifier.height(53.dp))  // 53dp gap between logo and sentence 1
+            Spacer(Modifier.height(24.dp))  // 24dp gap between logo and sentence 1 (was 53dp — too big)
 
             // ── 2. Sentence 1 — "I'll help you find your sound." ───────────
             BlurRevealText(
