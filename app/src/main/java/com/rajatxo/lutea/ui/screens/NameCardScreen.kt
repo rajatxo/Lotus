@@ -185,20 +185,13 @@ private fun NameCardContent(
         label = "sentence1_y",
     )
 
-    // Outer Box: NOT imePadded. The flower image lives here, anchored to the screen
-    // top, so it stays put when the keyboard opens (per user feedback: flower was
-    // getting cut off at the top when keyboard opened).
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        // ── Layer A: Flower image as FULL BACKGROUND ──────────────────────
-        // New image is 768x1715 (almost 2:5 aspect ratio — much taller than before).
-        // Top half: flower + red colors. Bottom half: pure black (#000000).
-        // Using ContentScale.Crop + fillMaxSize so the image fills the ENTIRE screen
-        // as a background. The bottom black portion is where the text sits.
-        //
-        // Stays put when keyboard opens (it's the background, not content).
+    // ── OUTER Box: NOT imePadded. Background image lives here, completely fixed. ──
+    // The flower Image fills the ENTIRE screen and NEVER moves when keyboard opens.
+    // The content Box (with imePadding) is a SIBLING — when it shrinks due to keyboard,
+    // the background Image is unaffected because it's not a child of the imePadded Box.
+    Box(modifier = Modifier.fillMaxSize()) {
+        // ── Layer A: Flower image — TRULY FIXED BACKGROUND ──────────────────
+        // In its own fillMaxSize Box. Keyboard opens/closes has ZERO effect on this.
         Image(
             painter = painterResource(R.drawable.flower_top),
             contentDescription = null,
@@ -206,112 +199,101 @@ private fun NameCardContent(
             modifier = Modifier.fillMaxSize(),
         )
 
-        // ── Layer B: Content Column — imePadded (NO verticalScroll) ──────────
-        // Only the text content shifts up when keyboard opens. The flower stays put.
-        Column(
+        // ── Layer B: Content Box — imePadded, centered cluster ──────────────
+        // Only this Box shifts when keyboard opens (via imePadding).
+        // Content (S1, S2, capsule, button) is CENTERED within this Box.
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight()
+                .fillMaxSize()
                 .imePadding()
                 .padding(horizontal = 24.dp)
                 .padding(
-                    // Push content DOWN so it starts in the LOWER half where the image
-                    // is pure black (no flower visible there). Top padding 480dp puts
-                    // content well below the flower's visible portion.
-                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 480.dp,
+                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
                     bottom = WindowInsets.navigationBars.asPaddingValues()
                         .calculateBottomPadding() + 24.dp,
                 ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top,
+            contentAlignment = Alignment.Center,  // ← center the cluster
         ) {
-            // ── 2. Sentence 1 — "I'll help you find your sound." ───────────
-            // DIMS when sentence 2 starts revealing (per user: 'when the second line
-            // show up, the first line get little bit dimmed so that the second line
-            // feel bright and main'). Animates color from pure white → 50% opacity
-            // gray-white when sentence 2 begins its reveal.
-            val sentence1Color by animateColorAsState(
-                targetValue = if (sentence1Dimmed) Color(0x80FFFFFF) else Color.White,
-                animationSpec = tween(durationMillis = 600),
-                label = "sentence1_color",
-            )
-            BlurRevealText(
-                text = "I'll help you find your sound.",
-                color = sentence1Color,
-                fontSize = 22,
-                fontWeight = FontWeight.Normal,
-                letterSpacing = 0f,
-                delayMillis = 200,
-                perCharDurationMillis = 300,
-                staggerMillis = 30,
-                maxBlurDp = 10.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(y = sentence1YOffset),
-            )
-
-            // ── 3. Sentence 2 — "First, what's your name?" ─────────────────
-            // Stays pure bright white so it pops as the main focal point.
-            Spacer(Modifier.height(17.dp))
-            BlurRevealText(
-                text = "First, what's your name?",
-                color = Color.White,
-                fontSize = 27,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0f,
-                delayMillis = 2100,
-                perCharDurationMillis = 300,
-                staggerMillis = 30,
-                maxBlurDp = 10.dp,
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(20.dp))  // 20dp gap between sentence 2 and capsule
-
-            // ── 4. Name capsule ──────────────────────────────────────────────
-            AnimatedVisibility(
-                visible = showCapsule,
-                enter = fadeIn(tween(400)) +
-                    slideInVertically(
-                        initialOffsetY = { it / 4 },
-                        animationSpec = tween(400),
-                    ),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,  // ← cluster centered
             ) {
-                PillTextField(
-                    value = name,
-                    onValueChange = { name = it.take(40) },
-                    placeholder = "Your name",
-                    focusRequester = focusRequester,
-                    imeAction = ImeAction.Done,
-                    onImeAction = { keyboard?.hide() },
+                // ── Sentence 1 — "I'll help you find your sound." ───────────
+                val sentence1Color by animateColorAsState(
+                    targetValue = if (sentence1Dimmed) Color(0x80FFFFFF) else Color.White,
+                    animationSpec = tween(durationMillis = 600),
+                    label = "sentence1_color",
+                )
+                BlurRevealText(
+                    text = "I'll help you find your sound.",
+                    color = sentence1Color,
+                    fontSize = 22,
+                    fontWeight = FontWeight.Normal,
+                    letterSpacing = 0f,
+                    delayMillis = 200,
+                    perCharDurationMillis = 300,
+                    staggerMillis = 30,
+                    maxBlurDp = 10.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset(y = sentence1YOffset),
+                )
+
+                // ── Sentence 2 — "First, what's your name?" ─────────────────
+                Spacer(Modifier.height(17.dp))
+                BlurRevealText(
+                    text = "First, what's your name?",
+                    color = Color.White,
+                    fontSize = 27,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0f,
+                    delayMillis = 2100,
+                    perCharDurationMillis = 300,
+                    staggerMillis = 30,
+                    maxBlurDp = 10.dp,
                     modifier = Modifier.fillMaxWidth(),
                 )
-            }
+                Spacer(Modifier.height(20.dp))  // 20dp gap between sentence 2 and capsule
 
-            // ── Flexible gap between capsule and Continue button ─────────────
-            // Per inspiration: 293dp gap (button sits at screen bottom, not under capsule).
-            // Using Spacer with weight=1f fills ALL remaining vertical space, pushing the
-            // Continue button to the bottom of the Column. When keyboard opens, imePadding
-            // shrinks the Box height → Column's available height shrinks → weight spacer
-            // shrinks → button moves UP closer to capsule (matches the video where gap
-            // shrinks from 293dp to ~60dp when keyboard opens).
-            Spacer(modifier = Modifier.weight(1f))
+                // ── Name capsule ──────────────────────────────────────────────
+                AnimatedVisibility(
+                    visible = showCapsule,
+                    enter = fadeIn(tween(400)) +
+                        slideInVertically(
+                            initialOffsetY = { it / 4 },
+                            animationSpec = tween(400),
+                        ),
+                ) {
+                    PillTextField(
+                        value = name,
+                        onValueChange = { name = it.take(40) },
+                        placeholder = "Your name",
+                        focusRequester = focusRequester,
+                        imeAction = ImeAction.Done,
+                        onImeAction = { keyboard?.hide() },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
 
-            // ── 5. Continue button — at the bottom of the same Column ─────────
-            // Now part of the same scrollable block, moves together with everything else.
-            AnimatedVisibility(
-                visible = showContinueButton,
-                enter = fadeIn(tween(400)) +
-                    slideInVertically(
-                        initialOffsetY = { it / 4 },
-                        animationSpec = tween(400),
-                    ),
-            ) {
-                val canContinue = name.isNotBlank()
-                ContinueButton(
-                    enabled = canContinue,
-                    onClick = { onComplete(name.ifBlank { "Friend" }) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Spacer(Modifier.height(16.dp))  // tiny gap between capsule and button
+
+                // ── Continue button ──────────────────────────────────────────
+                AnimatedVisibility(
+                    visible = showContinueButton,
+                    enter = fadeIn(tween(400)) +
+                        slideInVertically(
+                            initialOffsetY = { it / 4 },
+                            animationSpec = tween(400),
+                        ),
+                ) {
+                    val canContinue = name.isNotBlank()
+                    ContinueButton(
+                        enabled = canContinue,
+                        onClick = { onComplete(name.ifBlank { "Friend" }) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
     }
