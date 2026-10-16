@@ -183,18 +183,29 @@ private fun NameCardContent(
             .imePadding(),  // ← shrinks the Box height when keyboard opens.
         contentAlignment = Alignment.TopCenter,
     ) {
-        // ── Single scrollable Column containing ALL elements as ONE rigid block ──
-        // Per inspiration video: logo, sentences, capsule, and button all move together
-        // as one unit when keyboard opens/closes. They are NOT independent anchored boxes.
+        // ── Layer A: Flower image at the TOP of the screen ──────────────────
+        // Source: drawable/flower_top.jpg (736x1103, JPEG).
+        // Bottom of image fades to pure black (#020001) so it blends invisibly with
+        // the pure-black LuteaBackground. Image is anchored to the TOP, contentScale
+        // = FillWidth so it stretches to full screen width while preserving aspect ratio.
+        // Height is determined by aspect ratio — for 736x1103 image on a 1080-wide screen,
+        // it will render at 1080x1619 (about 2/3 of screen height on a 2412-tall phone).
+        Image(
+            painter = painterResource(R.drawable.flower_top),
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.TopCenter),
+        )
+
+        // ── Layer B: Scrollable Column on top of the flower image ──────────
+        // All elements move together as ONE rigid block when keyboard opens.
+        // verticalScroll + focusRequester auto-triggers Android's bringIntoView
+        // mechanism: when capsule gets focused, scroll brings it into view above keyboard.
         //
-        // Using verticalScroll + focusRequester auto-triggers Android's bringIntoView
-        // mechanism: when the capsule gets focused (via focusRequester.requestFocus()),
-        // the scroll automatically brings the capsule into view above the keyboard.
-        // The whole Column shifts up — logo, sentences, capsule, button all move together.
-        //
-        // The Continue button is INSIDE this Column (not anchored separately to BottomCenter)
-        // so it moves with everything else. The large gap between capsule and button is
-        // achieved with a Spacer that fills remaining space via weight(1f).
+        // No logo here anymore (per user: 'remove animated locus logo, i don't want
+        // anything there'). The flower image replaces it.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -202,23 +213,16 @@ private fun NameCardContent(
                 .verticalScroll(scrollState)
                 .padding(horizontal = 24.dp)
                 .padding(
-                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 56.dp,
+                    // Push content DOWN so it starts BELOW the visible flower portion.
+                    // The flower renders ~1619px tall on a 1080-wide screen.
+                    // Status bar inset + 600dp reserves enough space for the flower.
+                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 600.dp,
                     bottom = WindowInsets.navigationBars.asPaddingValues()
                         .calculateBottomPadding() + 24.dp,
                 ),
             horizontalAlignment = Alignment.CenterHorizontally,
-            // Top→bottom arrangement so content sits naturally at the top, with the
-            // Continue button pushed down toward the bottom via a flexible-weight Spacer.
             verticalArrangement = Arrangement.Top,
         ) {
-            // ── 1. Lotus logo — Lottie animation plays ONE TIME, then holds final frame ──
-            // Fixed size (160dp) — no shrink animation when keyboard opens (per user:
-            // 'why are you making the logo small? don't mess with logo..just increase the size').
-            AnimatedLuteaLogo(
-                sizeDp = 160.dp,
-            )
-            Spacer(Modifier.height(24.dp))  // 24dp gap between logo and sentence 1 (was 53dp — too big)
-
             // ── 2. Sentence 1 — "I'll help you find your sound." ───────────
             BlurRevealText(
                 text = "I'll help you find your sound.",

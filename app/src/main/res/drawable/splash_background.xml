@@ -1,17 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     Lutea's splash screen background.
-    Matches the TOP of the LuteaBackground gradient (slate-teal #1A2024) so the
-    launch → Compose handoff is seamless — no flash from pure black to teal.
-
-    The full cinematic gradient + radial glow kicks in once Compose takes over
-    (~100ms after launch). For the brief window before that, the user sees the
-    same slate-teal color the gradient starts with.
+    Pure black — matches LuteaBackground so the launch → Compose handoff is seamless.
+    The flower image fades to black at its bottom, so it blends invisibly into this
+    pure-black background.
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#1A2024" />
+            <solid android:color="#000000" />
         </shape>
     </item>
 </layer-list>
