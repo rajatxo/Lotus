@@ -1,6 +1,7 @@
 package com.rajatxo.lutea.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -133,6 +134,11 @@ private fun NameCardContent(
     // sentence1MovedUp = true → triggers animateDpAsState to move it UP.
     var sentence1MovedUp by remember { mutableStateOf(false) }
 
+    // When sentence 2 starts revealing, sentence 1 dims to 50% opacity
+    // (per user: 'when the second line show up, the first line get little bit
+    // dimmed so that the second line feel bright and main').
+    var sentence1Dimmed by remember { mutableStateOf(false) }
+
     // Continue button appears mid-way through sentence 2's reveal.
     var showContinueButton by remember { mutableStateOf(false) }
 
@@ -149,8 +155,10 @@ private fun NameCardContent(
         // Sentence 1 move-up takes ~600ms, so sentence 2 starts at ~2100ms.
         delay(600)
 
+        // Sentence 1 dims when sentence 2 begins revealing.
+        sentence1Dimmed = true
+
         // Continue button appears SIMULTANEOUSLY when sentence 2 starts revealing
-        // (user feedback: "i want simentunesly when the second sentence show")
         showContinueButton = true
 
         // Sentence 2 reveal: 24 chars * 30ms stagger + 300ms = ~1020ms, finishes ~3120ms
@@ -184,38 +192,33 @@ private fun NameCardContent(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.TopCenter,
     ) {
-        // ── Layer A: Flower image — anchored to TOP, OUTSIDE imePadding ──────
-        // Stays put when keyboard opens. Bottom fades to pure black so it blends
-        // invisibly with the pure-black LuteaBackground.
+        // ── Layer A: Flower image as FULL BACKGROUND ──────────────────────
+        // New image is 768x1715 (almost 2:5 aspect ratio — much taller than before).
+        // Top half: flower + red colors. Bottom half: pure black (#000000).
+        // Using ContentScale.Crop + fillMaxSize so the image fills the ENTIRE screen
+        // as a background. The bottom black portion is where the text sits.
+        //
+        // Stays put when keyboard opens (it's the background, not content).
         Image(
             painter = painterResource(R.drawable.flower_top),
             contentDescription = null,
-            contentScale = ContentScale.FillWidth,
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopCenter),
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
         )
 
         // ── Layer B: Content Column — imePadded (NO verticalScroll) ──────────
         // Only the text content shifts up when keyboard opens. The flower stays put.
-        //
-        // CRITICAL: verticalScroll was REMOVED. With verticalScroll + fillMaxHeight,
-        // the Column extended to the full screen height, and the weight(1f) Spacer
-        // pushed the Continue button to the SCREEN bottom (behind the keyboard).
-        // Without verticalScroll, imePadding shrinks the Column's actual height,
-        // so the weight spacer fills the space between capsule and KEYBOARD top
-        // → button sits just above the keyboard, fully visible.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                .imePadding()  // ← shrinks this Column's height when keyboard opens
+                .imePadding()
                 .padding(horizontal = 24.dp)
                 .padding(
-                    // Push content DOWN so it starts BELOW the visible flower portion.
-                    // Reduced from 360dp → 200dp per user: 'move those text and all
-                    // little bit up'.
-                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 200.dp,
+                    // Push content DOWN so it starts in the LOWER half where the image
+                    // is pure black (no flower visible there). Top padding 480dp puts
+                    // content well below the flower's visible portion.
+                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 480.dp,
                     bottom = WindowInsets.navigationBars.asPaddingValues()
                         .calculateBottomPadding() + 24.dp,
                 ),
@@ -223,9 +226,18 @@ private fun NameCardContent(
             verticalArrangement = Arrangement.Top,
         ) {
             // ── 2. Sentence 1 — "I'll help you find your sound." ───────────
+            // DIMS when sentence 2 starts revealing (per user: 'when the second line
+            // show up, the first line get little bit dimmed so that the second line
+            // feel bright and main'). Animates color from pure white → 50% opacity
+            // gray-white when sentence 2 begins its reveal.
+            val sentence1Color by animateColorAsState(
+                targetValue = if (sentence1Dimmed) Color(0x80FFFFFF) else Color.White,
+                animationSpec = tween(durationMillis = 600),
+                label = "sentence1_color",
+            )
             BlurRevealText(
                 text = "I'll help you find your sound.",
-                color = Color.White,
+                color = sentence1Color,
                 fontSize = 22,
                 fontWeight = FontWeight.Normal,
                 letterSpacing = 0f,
@@ -239,6 +251,7 @@ private fun NameCardContent(
             )
 
             // ── 3. Sentence 2 — "First, what's your name?" ─────────────────
+            // Stays pure bright white so it pops as the main focal point.
             Spacer(Modifier.height(17.dp))
             BlurRevealText(
                 text = "First, what's your name?",
