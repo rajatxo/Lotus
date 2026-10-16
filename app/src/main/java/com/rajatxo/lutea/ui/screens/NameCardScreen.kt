@@ -196,18 +196,26 @@ private fun NameCardContent(
                 .align(Alignment.TopCenter),
         )
 
-        // ── Layer B: Content Column — imePadded + scrollable ────────────────
+        // ── Layer B: Content Column — imePadded (NO verticalScroll) ──────────
         // Only the text content shifts up when keyboard opens. The flower stays put.
+        //
+        // CRITICAL: verticalScroll was REMOVED. With verticalScroll + fillMaxHeight,
+        // the Column extended to the full screen height, and the weight(1f) Spacer
+        // pushed the Continue button to the SCREEN bottom (behind the keyboard).
+        // Without verticalScroll, imePadding shrinks the Column's actual height,
+        // so the weight spacer fills the space between capsule and KEYBOARD top
+        // → button sits just above the keyboard, fully visible.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                .imePadding()  // ← only this Column shifts up when keyboard opens
-                .verticalScroll(scrollState)
+                .imePadding()  // ← shrinks this Column's height when keyboard opens
                 .padding(horizontal = 24.dp)
                 .padding(
                     // Push content DOWN so it starts BELOW the visible flower portion.
-                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 360.dp,
+                    // Reduced from 360dp → 200dp per user: 'move those text and all
+                    // little bit up'.
+                    top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 200.dp,
                     bottom = WindowInsets.navigationBars.asPaddingValues()
                         .calculateBottomPadding() + 24.dp,
                 ),
