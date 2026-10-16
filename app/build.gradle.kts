@@ -95,4 +95,8 @@ dependencies {
 
     // ★ Lottie — animated logo
     implementation("com.airbnb.android:lottie-compose:6.6.2")
+
+    // ★ Kyant backdrop — liquid glass blur (same library Coral uses)
+    // Version 1.0.0 has minCompileSdk=1 (works with compileSdk 35)
+    implementation("io.github.kyant0:backdrop:1.0.0")
 }
