@@ -30,11 +30,15 @@ import com.rajatxo.lutea.ui.components.CalSansFamily
 /**
  * QuickPicksScreen — the first page of Lutea after onboarding.
  *
- * Layout adapted from inspiration image:
- *   - Pure black background
- *   - "Quick Picks" title centered at top, large, bold, white
- *   - Section headers + placeholder song rows
- *   - Clean, minimal, dark aesthetic
+ * Layout adapted from inspiration image (movie detail style → music Quick Picks):
+ *   - Dark charcoal background (#1C1C1E)
+ *   - "Quick Picks" title at top-left, large, bold
+ *   - Subtitle/metadata below
+ *   - Divider line
+ *   - "Recently Played" section header
+ *   - Horizontal scroll row of circular thumbnails (placeholder)
+ *   - "Made for You" section header
+ *   - Another horizontal scroll row
  */
 @Composable
 fun QuickPicksScreen(
@@ -43,35 +47,30 @@ fun QuickPicksScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black)
-            .padding(horizontal = 24.dp)
-            .padding(top = 60.dp, bottom = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .background(Color(0xFF1C1C1E))
+            .padding(horizontal = 20.dp)
+            .padding(top = 56.dp, bottom = 24.dp),
     ) {
-        // ── Title ──
+        // ── Title at top-left ──
         Text(
             text = "Quick Picks",
             color = Color.White,
-            fontSize = 32.sp,
+            fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = CalSansFamily,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
 
         // ── Subtitle ──
         Text(
             text = "Your music, ready to play",
-            color = Color.White.copy(alpha = 0.4f),
-            fontSize = 14.sp,
+            color = Color(0xFF8E8E93),
+            fontSize = 13.sp,
             fontWeight = FontWeight.Normal,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
         )
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(20.dp))
 
         // ── Divider ──
         Box(
@@ -81,74 +80,168 @@ fun QuickPicksScreen(
                 .background(Color.White.copy(alpha = 0.1f)),
         )
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(20.dp))
 
-        // ── Section header ──
+        // ── Section: Recently Played ──
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Recently Played",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = CalSansFamily,
+            )
+            Text(
+                text = "See all",
+                color = Color(0xFF8E8E93),
+                fontSize = 13.sp,
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // ── Horizontal row of circular thumbnails ──
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            repeat(4) { index ->
+                CircularThumbPlaceholder()
+            }
+        }
+
+        Spacer(Modifier.height(28.dp))
+
+        // ── Section: Made for You ──
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Made for You",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = CalSansFamily,
+            )
+            Text(
+                text = "See all",
+                color = Color(0xFF8E8E93),
+                fontSize = 13.sp,
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // ── Horizontal row of circular thumbnails ──
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            repeat(4) { index ->
+                CircularThumbPlaceholder()
+            }
+        }
+
+        Spacer(Modifier.height(28.dp))
+
+        // ── Section: Recently Added ──
         Text(
-            text = "Recently Played",
-            color = Color.White.copy(alpha = 0.7f),
+            text = "Recently Added",
+            color = Color.White,
             fontSize = 18.sp,
             fontWeight = FontWeight.SemiBold,
             fontFamily = CalSansFamily,
-            modifier = Modifier.fillMaxWidth(),
         )
 
         Spacer(Modifier.height(16.dp))
 
-        // ── Placeholder song rows ──
-        repeat(5) { index ->
-            SongRowPlaceholder(index = index)
+        // ── List of song rows ──
+        repeat(3) { index ->
+            SongRowPlaceholder()
             Spacer(Modifier.height(12.dp))
         }
     }
 }
 
-/** A single placeholder song row — circular thumbnail + text bars. */
+/** Circular thumbnail with name placeholder — like the actor cards in the inspiration image. */
 @Composable
-private fun SongRowPlaceholder(index: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
+private fun CircularThumbPlaceholder() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Circular thumbnail placeholder
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(64.dp)
                 .clip(CircleShape)
                 .background(
                     Brush.linearGradient(
                         colors = listOf(
-                            Color(0xFF1A1A1A),
                             Color(0xFF2A2A2A),
+                            Color(0xFF1A1A1A),
                         ),
                     ),
                 ),
         )
-        Spacer(Modifier.size(12.dp))
+        Spacer(Modifier.height(8.dp))
+        // Name placeholder bar
+        Box(
+            modifier = Modifier
+                .width(56.dp)
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color.White.copy(alpha = 0.12f)),
+        )
+    }
+}
+
+/** Song row — circular thumbnail + title/artist bars + duration. */
+@Composable
+private fun SongRowPlaceholder() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF2A2A2A),
+                            Color(0xFF1A1A1A),
+                        ),
+                    ),
+                ),
+        )
+        Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            // Song title placeholder
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.6f)
-                    .height(14.dp)
+                    .fillMaxWidth(0.5f)
+                    .height(12.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .background(Color.White.copy(alpha = 0.15f)),
             )
             Spacer(Modifier.height(6.dp))
-            // Artist name placeholder
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.4f)
-                    .height(10.dp)
+                    .fillMaxWidth(0.35f)
+                    .height(8.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .background(Color.White.copy(alpha = 0.08f)),
             )
         }
-        // Duration placeholder
         Box(
             modifier = Modifier
-                .width(40.dp)
-                .height(10.dp)
+                .width(36.dp)
+                .height(8.dp)
                 .clip(RoundedCornerShape(4.dp))
                 .background(Color.White.copy(alpha = 0.08f)),
         )
