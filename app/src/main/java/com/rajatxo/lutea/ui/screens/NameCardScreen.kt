@@ -188,16 +188,17 @@ private fun NameCardContent(
             keyboard?.hide()
             oldSentencesDissolving = true
             // "Hi, [name]" reveals at delay 400ms, takes ~1500ms.
-            // Wait for it to finish, then start dissolving greeting + reveal line 2.
-            delay(2200)
+            // Give the user time to read it before vanishing (was 2200ms → now 3000ms).
+            delay(3000)
             greetingDismissing = true
-            // "But to find your music..." reveals at the same time (delay 0 in its BlurRevealText).
-            // Wait for it to reveal, then dissolve line 2 + reveal line 3.
-            delay(1800)
+            // "But to find your music..." reveals at the same time.
+            // Give the user time to read it before vanishing (was 1800ms → now 2500ms).
+            delay(2500)
             line2Dismissing = true
             // "I need some permission" reveals at the same time.
-            // Wait for it to reveal, then show permission cards.
-            delay(1500)
+            // This line STAYS — don't vanish it. Just wait for it to reveal,
+            // then show the permission cards below.
+            delay(1800)
             showPermissionCards = true
         }
     }
@@ -572,8 +573,10 @@ private fun NameCardContent(
                             }
                         }
 
-                        // ── Line 3: "I need some permission." — reveal, stays ──
-                        if (line2Dismissing) {
+                        // ── Line 3: "I need some permission." — reveal, stays VISIBLE ──
+                        // This line does NOT vanish. It stays visible when the permission
+                        // cards appear below it.
+                        if (line2Dismissing && !showPermissionCards) {
                             BlurRevealText(
                                 text = "I need some permission.",
                                 color = Color.White,
@@ -590,8 +593,25 @@ private fun NameCardContent(
                     }
                 }
 
+                // ── "I need some permission." stays visible during permission phase too ──
+                if (showPermissionCards) {
+                    BlurRevealText(
+                        text = "I need some permission.",
+                        color = Color.White,
+                        fontSize = 24,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0f,
+                        delayMillis = 0,
+                        perCharDurationMillis = 0,  // already revealed, no animation
+                        staggerMillis = 0,
+                        maxBlurDp = 0.dp,  // no blur — sharp
+                        reverse = false,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
                 // ── PERMISSION PHASE: cards positioned BELOW center ──
-                // Uses Arrangement.Bottom so the flower in the upper half stays visible.
+                // Uses weight(1f) spacer so the flower in the upper half stays visible.
                 if (showPermissionCards) {
                     Spacer(modifier = Modifier.weight(1f))
                     PermissionScreen(
