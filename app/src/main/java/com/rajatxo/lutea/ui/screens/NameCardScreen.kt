@@ -637,10 +637,35 @@ private fun NameCardContent(
                     }
                 }
 
-                // ── PERMISSION PHASE: text + cards positioned BELOW center ──
+                // ── PERMISSION PHASE: text moves up with blur + cards blur-reveal ──
                 if (showPermissionCards) {
+                    // Animate "I need some permission." text: moves UP + blur fades to sharp.
+                    val permissionTextOffset by animateDpAsState(
+                        targetValue = 0.dp,  // settles at 0 (natural position)
+                        animationSpec = tween(durationMillis = 600, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
+                        label = "perm_text_offset",
+                    )
+                    val permissionTextBlurProgress by animateFloatAsState(
+                        targetValue = 0f,  // 1=max blur, 0=sharp
+                        animationSpec = tween(durationMillis = 600, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
+                        label = "perm_text_blur",
+                    )
+                    val permissionTextBlurPx = with(LocalDensity.current) {
+                        (12.dp * permissionTextBlurProgress).toPx()
+                    }
+
+                    // Animate cards + button: blur reveals from blurred → sharp.
+                    val cardsBlurProgress by animateFloatAsState(
+                        targetValue = 0f,  // 1=max blur, 0=sharp
+                        animationSpec = tween(durationMillis = 800, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
+                        label = "cards_blur",
+                    )
+                    val cardsBlurPx = with(LocalDensity.current) {
+                        (16.dp * cardsBlurProgress).toPx()
+                    }
+
                     Spacer(modifier = Modifier.weight(1f))
-                    // "I need some permission." sits just above the permission cards
+                    // "I need some permission." — moves up + blur→sharp
                     Text(
                         text = "I need some permission.",
                         color = Color.White,
@@ -648,14 +673,34 @@ private fun NameCardContent(
                         fontWeight = FontWeight.SemiBold,
                         fontFamily = com.rajatxo.lutea.ui.components.CalSansFamily,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .offset(y = (-20).dp + permissionTextOffset)  // starts 20dp high, settles to 0
+                            .graphicsLayer {
+                                if (permissionTextBlurPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                    renderEffect = RenderEffect.createBlurEffect(
+                                        permissionTextBlurPx, permissionTextBlurPx,
+                                        Shader.TileMode.DECAL,
+                                    ).asComposeRenderEffect()
+                                }
+                            },
                     )
-                    Spacer(Modifier.height(16.dp))  // gap between text and first card
+                    Spacer(Modifier.height(16.dp))
+                    // Permission cards + Continue — blur reveal (blurred → sharp)
                     PermissionScreen(
                         displayName = name.ifBlank { "Friend" },
                         onPermissionsComplete = { onComplete(name.ifBlank { "Friend" }) },
                         backdrop = backdrop,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                if (cardsBlurPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                    renderEffect = RenderEffect.createBlurEffect(
+                                        cardsBlurPx, cardsBlurPx,
+                                        Shader.TileMode.DECAL,
+                                    ).asComposeRenderEffect()
+                                }
+                            },
                     )
                 }
             }
