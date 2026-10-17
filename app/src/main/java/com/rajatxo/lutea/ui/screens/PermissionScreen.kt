@@ -162,7 +162,7 @@ fun PermissionScreen(
             visible = true,
             enter = fadeIn(tween(400)),
         ) {
-            val canContinue = mediaGranted  // media is required, notifications are optional
+            val canContinue = mediaGranted && notificationsGranted  // BOTH required
             ContinueButton(
                 enabled = canContinue,
                 onClick = onPermissionsComplete,
