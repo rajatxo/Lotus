@@ -156,6 +156,7 @@ private fun NameCardContent(
     // dissolve old sentences UP + fade, reveal "Hi, [name]" + next sentence.
     var greetingShown by remember { mutableStateOf(false) }
     var oldSentencesDissolving by remember { mutableStateOf(false) }
+    var showPermissionScreen by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         delay(1500)
@@ -183,6 +184,9 @@ private fun NameCardContent(
         if (greetingShown) {
             keyboard?.hide()
             oldSentencesDissolving = true
+            // After greeting reveals (400ms delay + ~1500ms reveal), show permission screen
+            delay(2500)
+            showPermissionScreen = true
         }
     }
 
@@ -456,7 +460,7 @@ private fun NameCardContent(
                 // ── GREETING — "Hi, [name]" — reveals after Continue is tapped ──
                 // Bright green/cyan color, blur-reveal animation.
                 // Appears where the capsule used to be (center).
-                if (greetingShown) {
+                if (greetingShown && !showPermissionScreen) {
                     Spacer(Modifier.height(24.dp))
                     BlurRevealText(
                         text = "Hi, ${name.ifBlank { "Friend" }}",
@@ -468,6 +472,16 @@ private fun NameCardContent(
                         perCharDurationMillis = 300,
                         staggerMillis = 30,
                         maxBlurDp = 10.dp,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                // ── PERMISSION SCREEN — appears after greeting reveals ──
+                if (showPermissionScreen) {
+                    PermissionScreen(
+                        displayName = name.ifBlank { "Friend" },
+                        onPermissionsComplete = { onComplete(name.ifBlank { "Friend" }) },
+                        backdrop = backdrop,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
