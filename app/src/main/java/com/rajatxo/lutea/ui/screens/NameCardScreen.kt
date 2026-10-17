@@ -188,18 +188,11 @@ private fun NameCardContent(
         if (greetingShown) {
             keyboard?.hide()
             oldSentencesDissolving = true
-            // "Hi, [name]" reveals at delay 400ms, takes ~1500ms.
-            // Give the user time to read it before vanishing (was 2200ms → now 3000ms).
-            delay(3000)
+            delay(2600)
             greetingDismissing = true
-            // "But to find your music..." reveals at the same time.
-            // Give the user time to read it before vanishing (was 1800ms → now 2500ms).
-            delay(2500)
+            delay(2100)
             line2Dismissing = true
-            // "I need some permission" reveals at the same time.
-            // This line STAYS — don't vanish it. Just wait for it to reveal,
-            // then show the permission cards below.
-            delay(1800)
+            delay(1600)
             showPermissionCards = true
         }
     }
