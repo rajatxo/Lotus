@@ -267,6 +267,18 @@ private fun NameCardContent(
         animationSpec = tween(durationMillis = POST_CONTINUE_DURATION, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
         label = "old_sentences_alpha",
     )
+
+    // ── POST-CONTINUE line offsets (same move-up pattern as S1→S2) ──
+    val greetingYOffset: Dp by animateDpAsState(
+        targetValue = if (greetingDismissing) (-40).dp else 0.dp,
+        animationSpec = tween(durationMillis = 800, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
+        label = "greeting_y",
+    )
+    val line2YOffset: Dp by animateDpAsState(
+        targetValue = if (line2Dismissing) (-40).dp else 0.dp,
+        animationSpec = tween(durationMillis = 800, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
+        label = "line2_y",
+    )
     val oldSentencesBlurProgress by animateFloatAsState(
         targetValue = if (oldSentencesDissolving) 1f else 0f,
         animationSpec = tween(durationMillis = POST_CONTINUE_DURATION, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
@@ -477,13 +489,16 @@ private fun NameCardContent(
                 // so they don't cover the flower.
 
                 if (!showPermissionCards) {
-                    // ── Text-only phase: greeting + sequential lines, centered ──
+                    // ── Text-only phase: sequential reveal + move-up + vanish ──
+                    // Same pattern as S1→S2: each line has a reveal instance (reverse=false)
+                    // and a vanish instance (reverse=true + offset moves UP).
                     Box(
                         modifier = Modifier.fillMaxWidth(),
                         contentAlignment = Alignment.Center,
                     ) {
-                        // Line 1: "Hi, [name]" — reveals, then dissolves when line 2 shows
+                        // ── Greeting: "Hi, [name]" — reveal then move-up + vanish ──
                         if (greetingShown) {
+                            // A) Reveal instance — visible until greeting starts dismissing
                             BlurRevealText(
                                 text = "Hi, ${name.ifBlank { "Friend" }}",
                                 color = Color(0xFF80E5FF),
@@ -494,16 +509,34 @@ private fun NameCardContent(
                                 perCharDurationMillis = 300,
                                 staggerMillis = 30,
                                 maxBlurDp = 10.dp,
-                                reverse = greetingDismissing,
+                                reverse = false,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .alpha(if (greetingDismissing) 1f else 1f),
+                                    .alpha(if (greetingDismissing) 0f else 1f),
                             )
+                            // B) Vanish instance — moves UP + reverse blur when line 2 shows
+                            if (greetingDismissing) {
+                                BlurRevealText(
+                                    text = "Hi, ${name.ifBlank { "Friend" }}",
+                                    color = Color(0xFF80E5FF),
+                                    fontSize = 27,
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = 0f,
+                                    delayMillis = 0,
+                                    perCharDurationMillis = 400,
+                                    staggerMillis = 30,
+                                    maxBlurDp = 10.dp,
+                                    reverse = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .offset(y = greetingYOffset),
+                                )
+                            }
                         }
 
-                        // Line 2: "But to find your music..." — reveals when greeting dissolves,
-                        // then dissolves when line 3 shows
+                        // ── Line 2: "But to find your music," — reveal then move-up + vanish ──
                         if (greetingDismissing) {
+                            // A) Reveal instance
                             BlurRevealText(
                                 text = "But to find your music,",
                                 color = Color.White,
@@ -514,12 +547,32 @@ private fun NameCardContent(
                                 perCharDurationMillis = 300,
                                 staggerMillis = 30,
                                 maxBlurDp = 10.dp,
-                                reverse = line2Dismissing,
-                                modifier = Modifier.fillMaxWidth(),
+                                reverse = false,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .alpha(if (line2Dismissing) 0f else 1f),
                             )
+                            // B) Vanish instance — moves UP when line 3 shows
+                            if (line2Dismissing) {
+                                BlurRevealText(
+                                    text = "But to find your music,",
+                                    color = Color.White,
+                                    fontSize = 22,
+                                    fontWeight = FontWeight.Normal,
+                                    letterSpacing = 0f,
+                                    delayMillis = 0,
+                                    perCharDurationMillis = 400,
+                                    staggerMillis = 30,
+                                    maxBlurDp = 10.dp,
+                                    reverse = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .offset(y = line2YOffset),
+                                )
+                            }
                         }
 
-                        // Line 3: "I need some permission." — reveals, stays visible
+                        // ── Line 3: "I need some permission." — reveal, stays ──
                         if (line2Dismissing) {
                             BlurRevealText(
                                 text = "I need some permission.",
