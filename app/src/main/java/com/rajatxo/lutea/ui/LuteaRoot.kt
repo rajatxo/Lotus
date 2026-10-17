@@ -1,26 +1,32 @@
 package com.rajatxo.lutea.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.rajatxo.lutea.ui.screens.NameCardScreen
+import com.rajatxo.lutea.ui.screens.QuickPicksScreen
 
 /**
  * Lutea — root composable.
  *
- * Currently routes straight to the NameCardScreen — the first content screen of the
- * app, featuring the cinematic blur-in text reveal + name input form (from the
- * Lutea-Inspiration video).
- *
- * The screen uses LuteaBackground (teal-tinted gradient + radial glow) for
- * universe-fitting consistency — every screen in Lutea will use this same background.
+ * Routes between:
+ *   - NameCardScreen (onboarding: name entry + permission flow)
+ *   - QuickPicksScreen (first page of the app after onboarding)
  */
 @Composable
 fun LuteaRoot() {
-    NameCardScreen(
-        onComplete = { displayName ->
-            // TODO: persist the name + navigate to the next screen.
-            // For now this is a no-op so we can verify the animation + form behavior.
-            @Suppress("UNUSED_VARIABLE")
-            val _name = displayName
-        },
-    )
+    var onboardingComplete by remember { mutableStateOf(false) }
+
+    if (!onboardingComplete) {
+        NameCardScreen(
+            onComplete = { displayName ->
+                // Onboarding finished — navigate to Quick Picks
+                onboardingComplete = true
+            },
+        )
+    } else {
+        QuickPicksScreen()
+    }
 }
