@@ -152,11 +152,18 @@ private fun NameCardContent(
     var showCapsule by remember { mutableStateOf(false) }
 
     // ── POST-CONTINUE state ────────────────────────────────────────────────
-    // When user taps Continue: hide capsule + button, show greeting,
-    // dissolve old sentences UP + fade, reveal "Hi, [name]" + next sentence.
+    // Sequential text reveal + dissolve, just like S1→S2 on the first page.
     var greetingShown by remember { mutableStateOf(false) }
     var oldSentencesDissolving by remember { mutableStateOf(false) }
-    var showPermissionScreen by remember { mutableStateOf(false) }
+
+    // Sequential post-Continue flags:
+    //   greetingShown → "Hi, [name]" reveals
+    //   greetingDismissing → "Hi, [name]" dissolves, "But to find your music" reveals
+    //   line2Dismissing → "But to find your music" dissolves, "I need some permission" reveals
+    //   showPermissionCards → permission cards + Continue appear (below center)
+    var greetingDismissing by remember { mutableStateOf(false) }
+    var line2Dismissing by remember { mutableStateOf(false) }
+    var showPermissionCards by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         delay(1500)
@@ -166,7 +173,6 @@ private fun NameCardContent(
         showCapsule = true
     }
 
-    // After the capsule appears, auto-focus it so the keyboard slides up.
     LaunchedEffect(showCapsule) {
         if (showCapsule && !greetingShown) {
             delay(300)
@@ -174,19 +180,25 @@ private fun NameCardContent(
         }
     }
 
-    // ── POST-CONTINUE sequence ─────────────────────────────────────────────
-    // When user taps Continue:
-    //   1. Hide keyboard + capsule + button immediately
-    //   2. Start dissolving old sentences UP + fade to dark grey
-    //   3. After 600ms, show "Hi, [name]" greeting with blur reveal
-    //   4. After greeting reveals, show next sentence "Let's find your sound."
+    // ── POST-CONTINUE sequential animation ────────────────────────────────
+    // Each line reveals, then dissolves when the next line appears.
+    // Same BlurRevealText reverse mechanic as S1→S2.
     LaunchedEffect(greetingShown) {
         if (greetingShown) {
             keyboard?.hide()
             oldSentencesDissolving = true
-            // After greeting reveals (400ms delay + ~1500ms reveal), show permission screen
-            delay(2500)
-            showPermissionScreen = true
+            // "Hi, [name]" reveals at delay 400ms, takes ~1500ms.
+            // Wait for it to finish, then start dissolving greeting + reveal line 2.
+            delay(2200)
+            greetingDismissing = true
+            // "But to find your music..." reveals at the same time (delay 0 in its BlurRevealText).
+            // Wait for it to reveal, then dissolve line 2 + reveal line 3.
+            delay(1800)
+            line2Dismissing = true
+            // "I need some permission" reveals at the same time.
+            // Wait for it to reveal, then show permission cards.
+            delay(1500)
+            showPermissionCards = true
         }
     }
 
@@ -457,27 +469,78 @@ private fun NameCardContent(
                     }
                 }
 
-                // ── GREETING — "Hi, [name]" — reveals after Continue is tapped ──
-                // Bright green/cyan color, blur-reveal animation.
-                // Appears where the capsule used to be (center).
-                if (greetingShown && !showPermissionScreen) {
-                    Spacer(Modifier.height(24.dp))
-                    BlurRevealText(
-                        text = "Hi, ${name.ifBlank { "Friend" }}",
-                        color = Color(0xFF80E5FF),  // bright cyan-green
-                        fontSize = 27,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0f,
-                        delayMillis = 400,  // waits for old sentences to start dissolving
-                        perCharDurationMillis = 300,
-                        staggerMillis = 30,
-                        maxBlurDp = 10.dp,
+                // ── POST-CONTINUE: sequential text reveal + dissolve ──
+                // Same BlurRevealText reveal/vanish pattern as S1→S2.
+                // Each line reveals, then dissolves (reverse=true) when the next shows.
+                //
+                // When permission cards are shown, switch to BOTTOM-aligned layout
+                // so they don't cover the flower.
+
+                if (!showPermissionCards) {
+                    // ── Text-only phase: greeting + sequential lines, centered ──
+                    Box(
                         modifier = Modifier.fillMaxWidth(),
-                    )
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        // Line 1: "Hi, [name]" — reveals, then dissolves when line 2 shows
+                        if (greetingShown) {
+                            BlurRevealText(
+                                text = "Hi, ${name.ifBlank { "Friend" }}",
+                                color = Color(0xFF80E5FF),
+                                fontSize = 27,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 0f,
+                                delayMillis = 400,
+                                perCharDurationMillis = 300,
+                                staggerMillis = 30,
+                                maxBlurDp = 10.dp,
+                                reverse = greetingDismissing,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .alpha(if (greetingDismissing) 1f else 1f),
+                            )
+                        }
+
+                        // Line 2: "But to find your music..." — reveals when greeting dissolves,
+                        // then dissolves when line 3 shows
+                        if (greetingDismissing) {
+                            BlurRevealText(
+                                text = "But to find your music,",
+                                color = Color.White,
+                                fontSize = 22,
+                                fontWeight = FontWeight.Normal,
+                                letterSpacing = 0f,
+                                delayMillis = 0,
+                                perCharDurationMillis = 300,
+                                staggerMillis = 30,
+                                maxBlurDp = 10.dp,
+                                reverse = line2Dismissing,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+
+                        // Line 3: "I need some permission." — reveals, stays visible
+                        if (line2Dismissing) {
+                            BlurRevealText(
+                                text = "I need some permission.",
+                                color = Color.White,
+                                fontSize = 24,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 0f,
+                                delayMillis = 0,
+                                perCharDurationMillis = 300,
+                                staggerMillis = 30,
+                                maxBlurDp = 10.dp,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
                 }
 
-                // ── PERMISSION SCREEN — appears after greeting reveals ──
-                if (showPermissionScreen) {
+                // ── PERMISSION PHASE: cards positioned BELOW center ──
+                // Uses Arrangement.Bottom so the flower in the upper half stays visible.
+                if (showPermissionCards) {
+                    Spacer(modifier = Modifier.weight(1f))
                     PermissionScreen(
                         displayName = name.ifBlank { "Friend" },
                         onPermissionsComplete = { onComplete(name.ifBlank { "Friend" }) },

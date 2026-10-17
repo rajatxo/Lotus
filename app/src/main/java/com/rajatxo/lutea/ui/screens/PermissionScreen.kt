@@ -47,8 +47,6 @@ import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.vibrancy
-import com.rajatxo.lutea.ui.components.BlurRevealText
-import com.rajatxo.lutea.ui.foundation.LuteaBackdrop
 
 /**
  * PermissionScreen — shows after the greeting.
@@ -104,33 +102,7 @@ fun PermissionScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // ── Primary heading ──────────────────────────────────────────────
-        BlurRevealText(
-            text = "I can help with that, $displayName.",
-            color = Color.White,
-            fontSize = 24,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0f,
-            delayMillis = 600,
-            perCharDurationMillis = 300,
-            staggerMillis = 30,
-            maxBlurDp = 10.dp,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        // ── Subheading ──────────────────────────────────────────────────
-        BlurRevealText(
-            text = "But to find your music, I'm going to need your permission.",
-            color = Color.White,
-            fontSize = 18,
-            fontWeight = FontWeight.Normal,
-            letterSpacing = 0f,
-            delayMillis = 1400,
-            perCharDurationMillis = 250,
-            staggerMillis = 25,
-            maxBlurDp = 10.dp,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        // ── Permission cards only (heading text is handled by NameCardScreen) ──
 
         Spacer(Modifier.height(8.dp))
 
