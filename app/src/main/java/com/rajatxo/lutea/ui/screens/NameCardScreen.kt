@@ -43,6 +43,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -387,12 +388,12 @@ private fun NameCardContent(
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                // Chevron-left icon (Lucide path)
-                Text(
-                    text = "←",
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Medium,
+                // Chevron-left icon (Lucide vector drawable)
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron_left),
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp),
                 )
             }
         }
