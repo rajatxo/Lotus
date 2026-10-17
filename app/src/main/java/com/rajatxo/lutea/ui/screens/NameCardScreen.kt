@@ -346,8 +346,58 @@ private fun NameCardContent(
         },
     ) { backdrop ->
 
+        // ── Back button (kyant frosted glass, top-left) — visible only on permission page ──
+        // Lets the user go back and change their name.
+        if (showPermissionCards) {
+            val backShape = RoundedCornerShape(20.dp)
+            Box(
+                modifier = Modifier
+                    .padding(
+                        start = 24.dp,
+                        top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 8.dp,
+                    )
+                    .size(40.dp)
+                    .clip(backShape)
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { backShape },
+                        effects = {
+                            vibrancy()
+                            colorControls(
+                                brightness = 0.05f,
+                                contrast = 1f,
+                                saturation = 1.4f,
+                            )
+                            blur(16f.dp.toPx())
+                        },
+                        onDrawSurface = {
+                            drawRect(Color.Black.copy(alpha = 0.3f))
+                        },
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {
+                        // Reset to name entry phase
+                        showPermissionCards = false
+                        line2Dismissing = false
+                        greetingDismissing = false
+                        greetingShown = false
+                        oldSentencesDissolving = false
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                // Chevron-left icon (Lucide path)
+                Text(
+                    text = "←",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+
         // ── Layer B: Content — STATIC position (NO imePadding) ──────────
-        // Content cluster stays EXACTLY where it is. Keyboard does NOT move it.
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -357,7 +407,7 @@ private fun NameCardContent(
                     bottom = WindowInsets.navigationBars.asPaddingValues()
                         .calculateBottomPadding() + 24.dp,
                 ),
-            contentAlignment = Alignment.Center,  // ← center the cluster
+            contentAlignment = Alignment.Center,
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -593,27 +643,20 @@ private fun NameCardContent(
                     }
                 }
 
-                // ── "I need some permission." stays visible during permission phase too ──
-                if (showPermissionCards) {
-                    BlurRevealText(
-                        text = "I need some permission.",
-                        color = Color.White,
-                        fontSize = 24,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0f,
-                        delayMillis = 0,
-                        perCharDurationMillis = 0,  // already revealed, no animation
-                        staggerMillis = 0,
-                        maxBlurDp = 0.dp,  // no blur — sharp
-                        reverse = false,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-
-                // ── PERMISSION PHASE: cards positioned BELOW center ──
-                // Uses weight(1f) spacer so the flower in the upper half stays visible.
+                // ── PERMISSION PHASE: text + cards positioned BELOW center ──
                 if (showPermissionCards) {
                     Spacer(modifier = Modifier.weight(1f))
+                    // "I need some permission." sits just above the permission cards
+                    Text(
+                        text = "I need some permission.",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = com.rajatxo.lutea.ui.components.CalSansFamily,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(16.dp))  // gap between text and first card
                     PermissionScreen(
                         displayName = name.ifBlank { "Friend" },
                         onPermissionsComplete = { onComplete(name.ifBlank { "Friend" }) },
